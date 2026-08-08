@@ -1,0 +1,253 @@
+Doc Query:
+query {
+  getDocs(
+  where: {}
+  order: []
+  paging: {
+    pageNo: 1
+    pageSize: 10
+  }
+) {
+    items {
+      ItemId
+      CreatedDate
+      LastUpdatedDate
+      CreatedBy
+      Language
+      LastUpdatedBy
+      OrganizationId
+      Tags
+      Name
+      Description
+      CurrentVersion
+    }
+    totalCount
+    pageNo
+    pageSize
+    totalPages
+    hasNextPage
+    hasPreviousPage
+  }
+}
+
+response:
+{
+  "data": {
+    "getDocs": {
+      "items": [
+        {
+          "ItemId": "5b9bf8fa-59dc-433c-ab31-aacca6e306da",
+          "CreatedDate": "2026-08-02T19:58:27.862Z",
+          "LastUpdatedDate": "2026-08-02T21:25:52.324Z",
+          "CreatedBy": "30979794-e1e4-41c7-a28a-1edc2d676e9a",
+          "Language": null,
+          "LastUpdatedBy": "",
+          "OrganizationId": "default",
+          "Tags": [
+            "mock-data"
+          ],
+          "Name": "Mock Doc",
+          "Description": "Mock doc containing 3 mock pages..",
+          "CurrentVersion": "ace094e8-54a0-4022-83a0-bfc1c5e85b34"
+        }
+      ],
+      "totalCount": 1,
+      "pageNo": 1,
+      "pageSize": 10,
+      "totalPages": 1,
+      "hasNextPage": false,
+      "hasPreviousPage": false
+    }
+  }
+}
+
+DocVersion query:
+# Write your GraphQL query/mutation here
+query {
+  getDocVersions(
+  where: {}
+  order: []
+  paging: {
+    pageNo: 1
+    pageSize: 10
+  }
+) {
+    items {
+      ItemId
+      CreatedDate
+      LastUpdatedDate
+      CreatedBy
+      Language
+      LastUpdatedBy
+      OrganizationId
+      Tags
+      DocId
+      Version
+      Pages
+      IsPublished
+      IsActive
+    }
+    totalCount
+    pageNo
+    pageSize
+    totalPages
+    hasNextPage
+    hasPreviousPage
+  }
+}
+
+response:
+{
+  "data": {
+    "getDocVersions": {
+      "items": [
+        {
+          "ItemId": "ace094e8-54a0-4022-83a0-bfc1c5e85b34",
+          "CreatedDate": "2026-08-02T19:51:49.162Z",
+          "LastUpdatedDate": "2026-08-06T17:43:17.146Z",
+          "CreatedBy": "30979794-e1e4-41c7-a28a-1edc2d676e9a",
+          "Language": null,
+          "LastUpdatedBy": "",
+          "OrganizationId": "default",
+          "Tags": [
+            "mock-data"
+          ],
+          "DocId": "c2eb53cb-c188-4443-b25b-913b1dc25ad1",
+          "Version": "0.0.1",
+          "Pages": [
+            "9cffa2ac-41df-4343-8d6e-b7c97ea93964",
+            "6c71ed93-e29e-4956-970c-237566ad25a3",
+            "6efc261e-7606-407a-a3c1-6a4cfc591b6b",
+            "a05d15ca-27b5-40dd-8843-2615e4f13538"
+          ],
+          "IsPublished": false,
+          "IsActive": false
+        }
+      ],
+      "totalCount": 1,
+      "pageNo": 1,
+      "pageSize": 10,
+      "totalPages": 1,
+      "hasNextPage": false,
+      "hasPreviousPage": false
+    }
+  }
+}
+
+
+pages query:
+query {
+  getPages(
+  where: {}
+  order: []
+  paging: {
+    pageNo: 1
+    pageSize: 10
+  }
+) {
+    items {
+      ItemId
+      CreatedDate
+      LastUpdatedDate
+      CreatedBy
+      Language
+      LastUpdatedBy
+      OrganizationId
+      Tags
+      Title
+      ContentType
+      Content
+    }
+    totalCount
+    pageNo
+    pageSize
+    totalPages
+    hasNextPage
+    hasPreviousPage
+  }
+}
+
+response:
+{
+  "data": {
+    "getPages": {
+      "items": [
+        {
+          "ItemId": "6efc261e-7606-407a-a3c1-6a4cfc591b6b",
+          "CreatedDate": "2026-07-31T20:16:46.561Z",
+          "LastUpdatedDate": "2026-07-31T20:16:46.561Z",
+          "CreatedBy": "30979794-e1e4-41c7-a28a-1edc2d676e9a",
+          "Language": null,
+          "LastUpdatedBy": "30979794-e1e4-41c7-a28a-1edc2d676e9a",
+          "OrganizationId": "default",
+          "Tags": [
+            "mock-data"
+          ],
+          "Title": "Getting Started",
+          "ContentType": "md",
+          "Content": "# Getting Started\n\nWelcome to the project!\n\n## Prerequisites\n- Node.js\n- npm"
+        },
+        {
+          "ItemId": "9cffa2ac-41df-4343-8d6e-b7c97ea93964",
+          "CreatedDate": "2026-07-31T20:16:46.561Z",
+          "LastUpdatedDate": "2026-07-31T20:16:46.561Z",
+          "CreatedBy": "30979794-e1e4-41c7-a28a-1edc2d676e9a",
+          "Language": null,
+          "LastUpdatedBy": "30979794-e1e4-41c7-a28a-1edc2d676e9a",
+          "OrganizationId": "default",
+          "Tags": [
+            "mock-data"
+          ],
+          "Title": "To Do",
+          "ContentType": "md",
+          "Content": "# TODO List\n\n## High Priority\n- [x] Set up project\n- [ ] Implement login\n- [ ] Add unit tests\n\n## Low Priority\n- [ ] Improve documentation\n- [ ] Add dark mode"
+        },
+        {
+          "ItemId": "6c71ed93-e29e-4956-970c-237566ad25a3",
+          "CreatedDate": "2026-07-31T20:16:46.568Z",
+          "LastUpdatedDate": "2026-07-31T20:16:46.568Z",
+          "CreatedBy": "30979794-e1e4-41c7-a28a-1edc2d676e9a",
+          "Language": null,
+          "LastUpdatedBy": "30979794-e1e4-41c7-a28a-1edc2d676e9a",
+          "OrganizationId": "default",
+          "Tags": [
+            "mock-data"
+          ],
+          "Title": "Meeting Notes",
+          "ContentType": "md",
+          "Content": "# Meeting Notes\n\n**Date:** August 1, 2026\n\n## Attendees\n- Alice\n- Bob\n- Charlie\n\n## Discussion\n- Reviewed project progress.\n- Planned next sprint.\n- Assigned new tasks.\n\n## Action Items\n| Task | Owner | Due |\n|------|-------|-----|\n| Update documentation | Alice | Aug 3 |\n| Fix login bug | Bob | Aug 2 |\n| Review PRs | Charlie | Aug 4 |"
+        },
+        {
+          "ItemId": "a05d15ca-27b5-40dd-8843-2615e4f13538",
+          "CreatedDate": "2026-08-06T17:43:15.858Z",
+          "LastUpdatedDate": "2026-08-06T17:43:15.858Z",
+          "CreatedBy": "",
+          "Language": null,
+          "LastUpdatedBy": "",
+          "OrganizationId": "",
+          "Tags": [],
+          "Title": "Code of conduct",
+          "ContentType": "md",
+          "Content": "# Code of Conduct\n\n## Our Pledge\n\nIn the interest of fostering an open and welcoming environment, we, as contributors and maintainers, pledge to make participation in our project and our community a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation."
+        }
+      ],
+      "totalCount": 4,
+      "pageNo": 1,
+      "pageSize": 10,
+      "totalPages": 1,
+      "hasNextPage": false,
+      "hasPreviousPage": false
+    }
+  }
+}
+insertPage response schema:
+{
+  "data": {
+    "insertPage": {
+      "acknowledged": true,
+      "itemId": "3a594b16-f18a-46d4-9405-9cd959236402",
+      "totalImpactedData": 0,
+      "message": null
+    }
+  }
+}
