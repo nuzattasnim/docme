@@ -1,0 +1,13 @@
+node_modules
+dist
+.cert
+.env
+.env.*
+!.env.example
+!.env.local.example
+.git
+.agents
+.claude
+.kilocode
+blocks-reports.md
+*.log

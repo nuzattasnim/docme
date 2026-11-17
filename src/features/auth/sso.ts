@@ -1,70 +1,61 @@
 /**
- * SSO / OIDC login flow helpers.
+ * SSO / OIDC login flow helpers (blocks-iam-sso-oidc-implementation skill).
  *
- * Authorization-code flow against the hosted Blocks IAM:
- *   1. startLogin()           → GET /iam/v4/idp/initiate → window.location to redirect_uri
- *   2. user authenticates on iam.seliseblocks.com
- *   3. browser returns to /callback?code=...&state=...
- *   4. finishLogin()          → GET /iam/v4/idp/callback → sets the session cookie
- *   5. refreshSession()       → POST /iam/v4/oidc/token → rotates cookies (401-retry)
+ * Hosted Blocks IAM login, driven by the @seliseblocks/client SDK:
+ *   1. startLogin()      → auth.idp.redirectToProvider() → browser goes to iam.seliseblocks.com
+ *   2. user signs in on the hosted page
+ *   3. browser returns to /login/callback?code=...&state=...
+ *   4. finishLogin()     → auth.idp.callback() → Blocks sets the session cookie
+ *   5. refreshSession()  → POST /iam/v4/oidc/token → rotates cookies (401-retry)
  *
- * The session is an HttpOnly cookie — we never read the access token in JS unless
- * the project explicitly exposes one (see auth-store.ts).
+ * The session is an HttpOnly cookie — we never read the access token in JS.
+ * The redirect URI defaults to `${origin}/login/callback` (see lib/blocks/client.ts);
+ * it must be registered on the OIDC client for every origin the app runs on.
  */
+import { BlocksApiError } from "@seliseblocks/client";
+import { getBlocksClient } from "@/lib/blocks/client";
 
 const API = import.meta.env.VITE_BLOCKS_API_URL;
 const PROJECT_KEY = import.meta.env.VITE_BLOCKS_PROJECT_KEY;
 const CLIENT_ID = import.meta.env.VITE_BLOCKS_OIDC_CLIENT_ID;
-const REDIRECT_URI = import.meta.env.VITE_BLOCKS_REDIRECT_URI;
 
 function assertEnv() {
   if (!API) throw new Error("VITE_BLOCKS_API_URL is not set");
   if (!PROJECT_KEY) throw new Error("VITE_BLOCKS_PROJECT_KEY is not set");
   if (!CLIENT_ID) throw new Error("VITE_BLOCKS_OIDC_CLIENT_ID is not set");
-  if (!REDIRECT_URI) throw new Error("VITE_BLOCKS_REDIRECT_URI is not set");
 }
 
-/** Step 1+2: fetch the authorize URL from Blocks, then redirect the browser. */
+function describe(err: unknown, step: string): Error {
+  if (err instanceof BlocksApiError) {
+    const body = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
+    return new Error(`${step} failed: ${err.status} ${body ?? ""}`.trim());
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+/** Step 1+2: ask Blocks for the hosted login URL, then redirect the browser. */
 export async function startLogin(): Promise<void> {
   assertEnv();
-
-  // x-blocks-key must be sent in BOTH the query string and the header.
-  const url =
-    `${API}/iam/v4/idp/initiate` +
-    `?x-blocks-key=${encodeURIComponent(PROJECT_KEY)}` +
-    `&clientId=${encodeURIComponent(CLIENT_ID)}` +
-    `&redirectUri=${encodeURIComponent(REDIRECT_URI)}`;
-
-  const res = await fetch(url, { headers: { "x-blocks-key": PROJECT_KEY } });
-  if (!res.ok) {
-    throw new Error(`initiate failed: ${res.status} ${await res.text()}`);
+  try {
+    await getBlocksClient().auth.idp.redirectToProvider();
+  } catch (err) {
+    throw describe(err, "Sign-in");
   }
-  const { redirect_uri } = (await res.json()) as { redirect_uri?: string };
-  if (!redirect_uri) throw new Error("initiate returned no redirect_uri");
-
-  window.location.assign(redirect_uri);
 }
 
-/** Step 4: run on the /callback route. The backend sets the session cookie. */
-export async function finishLogin(search: string): Promise<void> {
+/** Step 4: run on the callback route. Blocks sets the session cookie. */
+export async function finishLogin(callbackUrl: string): Promise<void> {
   assertEnv();
-
-  const params = new URLSearchParams(search);
-  const code = params.get("code");
-  const state = params.get("state");
-  if (!code || !state) throw new Error("missing code/state on callback");
-
-  const url =
-    `${API}/iam/v4/idp/callback` +
-    `?code=${encodeURIComponent(code)}` +
-    `&state=${encodeURIComponent(state)}`;
-
-  const res = await fetch(url, {
-    credentials: "include",
-    headers: { "x-blocks-key": PROJECT_KEY },
-  });
-  if (!res.ok) {
-    throw new Error(`callback failed: ${res.status} ${await res.text()}`);
+  const params = new URL(callbackUrl).searchParams;
+  const error = params.get("error_description") ?? params.get("error");
+  if (error) throw new Error(error);
+  if (!params.get("code") || !params.get("state")) {
+    throw new Error("missing code/state on callback");
+  }
+  try {
+    await getBlocksClient().auth.idp.callback(callbackUrl);
+  } catch (err) {
+    throw describe(err, "Callback");
   }
 }
 

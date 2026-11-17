@@ -9,8 +9,10 @@ Auth flows via the hosted OIDC SSO; data via the runtime GraphQL gateway.
 |---|---|
 | Project | `docme` (env: `dev`) |
 | App domain | `https://dmqhre.slsblx.com` |
-| OIDC redirect URI (local dev) | `https://dmqhre.slsblx.com:5173/callback` |
-| OIDC redirect URI (prod) | `https://dmqhre.slsblx.com/callback` |
+| OIDC client | `docme web` — public, PKCE (`dc65fa6a-24a7-4319-aeca-b8393717f976`) |
+| OIDC redirect URI (local dev) | `https://dmqhre.slsblx.com:5173/login/callback` |
+| OIDC redirect URI (deployed) | `https://<release-domain>/login/callback` — registered by `--register-callback` |
+| Activation / reset / signup | Blocks-hosted (`iam.seliseblocks.com`) — OIDC is enabled |
 | API base (same-site as app) | `https://blocksapi.slsblx.com` |
 | Schemas (so far) | `Doc`, `Page`, `DocVersion` |
 | Multi-org | not enabled |
@@ -27,43 +29,35 @@ Edit `C:\Windows\System32\drivers\etc\hosts` as Administrator and add:
 
 (Only on your machine — the public domain still resolves normally for everyone else.)
 
-### 2. Generate a self-signed HTTPS cert
+(`fix-hosts.ps1` does this if the line is already there but commented out.)
 
-In Git Bash (or any shell with openssl):
+### 2. Install, then generate a self-signed HTTPS cert
 
 ```bash
-mkdir -p .cert
-openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 365 \
-  -keyout .cert/dev-key.pem \
-  -out    .cert/dev-cert.pem \
-  -subj "/CN=dmqhre.slsblx.com" \
-  -addext "subjectAltName=DNS:dmqhre.slsblx.com"
+npm install
+npm run cert          # writes .cert/dev-cert.pem + .cert/dev-key.pem (no OpenSSL needed)
 ```
 
-### 3. Trust the cert (Windows, elevated PowerShell)
+### 3. Trust the cert (Windows PowerShell)
 
 ```powershell
-Import-Certificate -FilePath ".\.cert\dev-cert.pem" -CertStoreLocation Cert:\CurrentUser\Root
+.\trust-cert.ps1      # imports into Cert:\CurrentUser\Root — click "Yes" on the dialog
 ```
 
 Restart the browser for the trust to take effect.
 
-### 4. Create the env files
+### 4. Create `.env.local`
 
 ```powershell
-copy .env.example       .env
 copy .env.local.example .env.local
 ```
 
-Edit each and fill in the real values:
+Fill in `VITE_BLOCKS_PROJECT_KEY` (your `x-blocks-key`) and `VITE_BLOCKS_OIDC_CLIENT_ID`
+(the public `docme web` client). No secrets go in this file.
 
-- **`.env`** → `BLOCKS_USERNAME` / `BLOCKS_PASSWORD` (your portal login).
-- **`.env.local`** → `VITE_BLOCKS_PROJECT_KEY` (your `x-blocks-key`) + `VITE_BLOCKS_OIDC_CLIENT_ID`.
-
-### 5. Install + run
+### 5. Run
 
 ```bash
-npm install
 npm run dev
 ```
 
@@ -75,17 +69,22 @@ Opens at `https://dmqhre.slsblx.com:5173` (HTTPS, on the project's real domain �
 |---|---|
 | `/` | Home; shows login button or profile + logout depending on session |
 | `/login` | Sign-in screen |
-| `/callback` | The OIDC redirect URI — finalizes the session cookie |
+| `/login/callback` | The OIDC redirect URI — finalizes the session cookie (`/callback` kept as an alias) |
 | `/profile` | Raw `/iam/v4/iam/me` payload (for debugging) |
 | `/docs` | List + create new Doc (data-gateway CRUD) |
 | `/docs/:docId` | Read + mutate one Doc, its current DocVersion, and its Pages |
 
-## Auth flow (verified)
+## Auth flow
 
-1. Click **Sign in** → `GET /iam/v4/idp/initiate` → redirects browser to `iam.seliseblocks.com`.
+Sign-in, signup, invitation activation and password reset all happen on the
+Blocks-hosted IAM pages (`iam.seliseblocks.com`), because `isOidcEnabled` is on.
+The app only starts the flow and finishes the callback, via `@seliseblocks/client`
+(`src/lib/blocks/client.ts`).
+
+1. Click **Sign in** → `blocksClient.auth.idp.redirectToProvider()` → browser goes to `iam.seliseblocks.com`.
 2. Authenticate on the hosted login page.
-3. IAM redirects back to `/callback?code=...&state=...`.
-4. `GET /iam/v4/idp/callback` → sets the session cookie.
+3. IAM redirects back to `/login/callback?code=...&state=...`.
+4. `blocksClient.auth.idp.callback()` → sets the session cookie.
 5. App calls `GET /iam/v4/iam/me` → 200 → user is signed in.
 6. On 401 anywhere → `POST /iam/v4/oidc/token` (`grant_type=refresh_token`) → retry once.
 7. Sign out → `POST /iam/v4/auth/Logout` (empty body, `credentials: include`) → server clears cookies.
@@ -180,11 +179,31 @@ src/
 └── main.tsx
 ```
 
+## Deploying with Blocks Release
+
+`Dockerfile` (node build → unprivileged nginx on 8080) and `nginx.conf` (SPA
+fallback) are what Release builds. The public `VITE_BLOCKS_*` values are passed
+as build args from the repo's secret set.
+
+1. **Link the repo (portal-only):** in https://os.seliseblocks.com, link GitHub
+   `nuzattasnim/docme`, branch **`dev`** (the branch must match the project's
+   environment name, `dev`).
+2. **Build args:**
+   `blocks release secrets sync --file .env.release --dry-run --json`, then `--yes`.
+3. **First deploy:**
+   `blocks release setup --register-callback --dry-run --json`, then `--yes --follow`.
+   `--register-callback` adds `https://<assigned-domain>/login/callback` to the
+   `docme web` OIDC client so sign-in works on the deployed URL.
+4. **Later deploys:** `blocks release deploy --dry-run --json`, then `--yes --wait`.
+
+Release builds what is pushed to `dev`, so commit and push `Dockerfile`,
+`nginx.conf` and `.dockerignore` before step 3.
+
 ## Common gotchas
 
 - **HTTP instead of HTTPS** → the session cookie is `Secure`, browser refuses to store it, login looks successful but every subsequent call 401s. Always run on `https://dmqhre.slsblx.com:5173`.
 - **Wrong `VITE_BLOCKS_API_URL`** → cookie is scoped to `dmqhre.slsblx.com`, so the API must sit under the same registrable domain. Use `https://blocksapi.slsblx.com`, not `https://api.seliseblocks.com`.
-- **`redirectUri` mismatch** → the value registered on the OIDC client must exactly equal `VITE_BLOCKS_REDIRECT_URI`. The local-dev URL has `:5173` in it; the prod URL doesn't.
+- **`redirect_uri_not_registered`** → the app sends `<current origin>/login/callback`; that exact URL must be registered on the `docme web` client. The local-dev URL has `:5173` in it; deployed URLs don't.
 - **No `Subject Alternative Name` in the cert** → modern browsers reject the cert. The `openssl` command above uses `-addext "subjectAltName=..."` to include the domain.
 - **Committing `.env`** → add the `.env` line to `.gitignore` (already there) and never paste secrets into the chat.
 - **`Field 'getDocs' does not exist on type 'Query'`** → the `Doc` schema

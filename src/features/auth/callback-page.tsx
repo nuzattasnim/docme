@@ -18,7 +18,7 @@ export function CallbackPage() {
     ran.current = true;
     setStatus("loading");
 
-    finishLogin(window.location.search)
+    finishLogin(window.location.href)
       .then(() => navigate("/", { replace: true }))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [navigate, setStatus]);
