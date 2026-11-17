@@ -14,10 +14,9 @@ import { useAuthStore } from "@/features/auth/auth-store";
  *   the key, so edits show up immediately.
  */
 export function useMe() {
-  const refresh = useAuthStore((s) => s.refresh);
   return useQuery<Me | null>({
     queryKey: ["iam", "me"],
-    queryFn: () => users.meOrNull(() => refresh()),
+    queryFn: () => users.meOrNull(),
     staleTime: 60_000,
     retry: false,
   });
@@ -69,11 +68,10 @@ export function useUpdateMyProfile() {
  * `userId` is falsy so we don't fire a no-op query.
  */
 export function useMyTimeline(userId: string, pageSize = 20) {
-  const refresh = useAuthStore((s) => s.refresh);
   return useQuery<TimelineEntry[]>({
     queryKey: ["iam", "timeline", userId, pageSize],
     queryFn: async () => {
-      const res = await users.timeline(userId, 0, pageSize, () => refresh());
+      const res = await users.timeline(userId, 0, pageSize);
       return res.data ?? [];
     },
     enabled: !!userId,

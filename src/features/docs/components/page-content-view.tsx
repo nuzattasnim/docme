@@ -3,6 +3,7 @@ import {
   Trash2,
   AlertCircle,
   MoreVertical,
+  RotateCw,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,10 @@ export interface PageContentViewProps {
   page: Page | undefined;
   loading?: boolean;
   error?: unknown;
+  /** Re-run the failed page query (C12). */
+  onRetry?: () => void;
+  /** Hide Edit/Delete for versions that can't be edited (C8). */
+  readOnly?: boolean;
   onDelete: () => Promise<void>;
   onSave: (pageId: string, updates: PageUpdate) => Promise<void>;
   deleting?: boolean;
@@ -50,6 +55,8 @@ export function PageContentView({
   page,
   loading,
   error,
+  onRetry,
+  readOnly,
   onDelete,
   onSave,
   deleting,
@@ -77,8 +84,13 @@ export function PageContentView({
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Failed to load page: {formatError(error)}
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+          <span>Failed to load page: {formatError(error)}</span>
+          {onRetry && (
+            <Button size="sm" variant="outline" onClick={onRetry}>
+              <RotateCw className="h-3.5 w-3.5" /> Retry
+            </Button>
+          )}
         </AlertDescription>
       </Alert>
     );
@@ -120,6 +132,7 @@ export function PageContentView({
                 )}
               </p>
             </div>
+            {!readOnly && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -150,6 +163,7 @@ export function PageContentView({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </div>
         </CardHeader>
         <CardContent className="flex-1 min-h-0 overflow-y-auto">
@@ -165,12 +179,14 @@ export function PageContentView({
 
       {showToc && <PageToc sections={sections} />}
 
+      {!readOnly && (
       <EditPageModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
         page={page}
         onSave={onSave}
       />
+      )}
     </div>
   );
 }

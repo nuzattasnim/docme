@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import {
 	Card,
 	CardContent,
@@ -5,16 +6,29 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// The migration panel is compiled in only when the build sets
+// VITE_ENABLE_MIGRATION=true. Vite inlines the value, so in any other build
+// this condition is constant-false and the panel's chunk is never emitted.
+const MigrationPanel =
+	import.meta.env.VITE_ENABLE_MIGRATION === "true"
+		? lazy(() => import("@/features/migration/migration-panel"))
+		: null;
+
+// TEMPORARY (SPEC2 spike S0): only in builds with VITE_ENABLE_SPIKE=true.
+const S0ProbePanel =
+	import.meta.env.VITE_ENABLE_SPIKE === "true"
+		? lazy(() => import("@/features/access/s0-probe-panel"))
+		: null;
 
 /**
- * Settings — landing page for `/settings`. Future home for theme
- * preferences (now handled via the topbar), notification settings,
- * API tokens, etc. For now it's a placeholder card so the route
- * resolves.
+ * Settings — `/settings`. Account preferences live in the topbar today; the
+ * data migration card appears here in migration-enabled builds only.
  */
 export function SettingsPage() {
 	return (
-		<div className="mx-auto max-w-2xl space-y-4">
+		<div className="mx-auto max-w-3xl space-y-6 px-3 pt-4">
 			<Card>
 				<CardHeader>
 					<CardTitle>Settings</CardTitle>
@@ -29,6 +43,16 @@ export function SettingsPage() {
 					</p>
 				</CardContent>
 			</Card>
+			{S0ProbePanel && (
+				<Suspense fallback={<Skeleton className="h-48 w-full" />}>
+					<S0ProbePanel />
+				</Suspense>
+			)}
+			{MigrationPanel && (
+				<Suspense fallback={<Skeleton className="h-48 w-full" />}>
+					<MigrationPanel />
+				</Suspense>
+			)}
 		</div>
 	);
 }

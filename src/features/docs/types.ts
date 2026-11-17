@@ -1,80 +1,95 @@
 /**
- * Domain types for the docme data model.
+ * Domain types for the docme data model (v2).
  *
- * The cloud project defines three entity schemas:
- *   - Doc          — a document with a CurrentVersion pointer
- *   - DocVersion   — a saved snapshot of a Doc, owns Pages[]
- *   - Page         — an individual page (Title, ContentType, Content)
+ * Three entity schemas in Blocks Data:
+ *   - Doc         — a document; `CurrentVersion` is the version editors open by default
+ *   - DocVersion  — a version of a Doc; owns its Pages
+ *   - Page        — one page; points back to its Doc and DocVersion
  *
- * Blocks auto-adds `ItemId`, `CreatedDate`, `CreatedBy`, `LastUpdatedDate`,
- * `LastUpdatedBy`, `Language`, `OrganizationId`, and `Tags` to every entity —
- * we don't define those here. Field names in the gateway are PascalCase, so
- * the TS interfaces match.
+ * Blocks adds `ItemId`, `CreatedDate`, `CreatedBy`, `LastUpdatedDate`,
+ * `LastUpdatedBy`, `Language`, `OrganizationId` and `Tags` to every record.
  *
- * Relationship shape (resolved via field values, not by GraphQL relations):
- *   Doc 1───1 DocVersion       (Doc.CurrentVersion = DocVersion.ItemId)
- *   DocVersion 1───* Page      (DocVersion.Pages  = Page.ItemId[])
+ * Relationships (resolved by field values, not GraphQL relations):
+ *   Doc 1───* DocVersion   (DocVersion.DocId = Doc.ItemId)
+ *   DocVersion 1───* Page  (Page.VersionId = DocVersion.ItemId, Page.DocId = Doc.ItemId)
  *
- * The "Pages of the current version" are resolved by reading
- * `DocVersion.Pages` (a string[] of Page ItemIds) and then fetching those
- * Page records. The detail page re-orders the result to match the order
- * stored on the DocVersion.
+ * Page order is `SortOrder` ASC, then `CreatedDate` ASC, then `ItemId` ASC
+ * (see ordering.ts). `DocVersion.Pages` is the deprecated v1 order array:
+ * only the migration reads it, and nothing writes it.
  */
 
-/** A Doc record from the gateway. */
+export type DocStatus = "Active" | "Deleting";
+export type VersionStatus = "Ready" | "Copying" | "CopyFailed";
+export const CURRENT_SCHEMA_VERSION = 2;
+
 export interface Doc {
   ItemId: string;
   Name: string;
   Description?: string | null;
   CurrentVersion?: string | null;
+  /** Missing on legacy records — read as "Active". */
+  Status?: DocStatus | null;
   CreatedDate?: string;
   LastUpdatedDate?: string;
 }
 
-/** A DocVersion record — owned by one Doc; owns the ordered list of Pages. */
 export interface DocVersion {
   ItemId: string;
   DocId?: string | null;
   Version?: string | null;
+  /** @deprecated v1 order array. Read only by the migration. */
   Pages?: string[] | null;
   IsPublished?: boolean | null;
   IsActive?: boolean | null;
+  Status?: VersionStatus | null;
+  SourceVersionId?: string | null;
+  /** 2 for v2 records; missing means legacy (unmigrated). */
+  SchemaVersion?: number | null;
   CreatedDate?: string;
   LastUpdatedDate?: string;
 }
 
-/** A Page record — referenced from DocVersion.Pages (string[] of Page ItemIds). */
 export interface Page {
   ItemId: string;
+  DocId?: string | null;
+  VersionId?: string | null;
   Title: string;
   ContentType?: string | null;
   Content?: string | null;
+  SortOrder?: number | null;
+  SourcePageId?: string | null;
   CreatedDate?: string;
   LastUpdatedDate?: string;
 }
 
-/** Input shape for `insertDoc` / partial `updateDoc`. */
-export type DocInsert = {
-  Name: string;
-  Description?: string | null;
-  CurrentVersion?: string | null;
-};
-export type DocUpdate = Partial<DocInsert>;
-
-/** Input shape for `insertDocVersion` / partial `updateDocVersion`. */
-export type DocVersionInsert = {
-  DocId?: string | null;
-  Version?: string | null;
-  Pages?: string[] | null;
-  IsPublished?: boolean | null;
-  IsActive?: boolean | null;
-};
-export type DocVersionUpdate = Partial<DocVersionInsert>;
-
-/** Input shape for `insertPage` / partial `updatePage`. */
-export type PageInsert = {
+/** What the page list needs — never includes `Content`. */
+export interface PageSummary {
+  ItemId: string;
   Title: string;
-  ContentType?: string | null;
-  Content?: string | null;
-};
-export type PageUpdate = Partial<PageInsert>;
+  SortOrder?: number | null;
+  CreatedDate?: string;
+}
+
+export type DocUpdate = Partial<Pick<Doc, "Name" | "Description">>;
+export type PageUpdate = Partial<Pick<Page, "Title" | "ContentType" | "Content">>;
+
+/** "Active" unless the record says otherwise. */
+export function docStatus(doc: Pick<Doc, "Status">): DocStatus {
+  return doc.Status === "Deleting" ? "Deleting" : "Active";
+}
+
+/** The version's editability, derived from SchemaVersion + Status. */
+export type VersionState = "ready" | "legacy" | "copying" | "copyFailed";
+
+export function versionState(v: Pick<DocVersion, "SchemaVersion" | "Status">): VersionState {
+  if (v.SchemaVersion !== CURRENT_SCHEMA_VERSION) return "legacy";
+  if (v.Status === "Copying") return "copying";
+  if (v.Status === "CopyFailed") return "copyFailed";
+  if (v.Status === "Ready") return "ready";
+  // A v2 record without a Status is treated as not ready: never edit it.
+  return "copyFailed";
+}
+
+export function isVersionEditable(v: Pick<DocVersion, "SchemaVersion" | "Status">): boolean {
+  return versionState(v) === "ready";
+}

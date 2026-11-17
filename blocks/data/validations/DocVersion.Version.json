@@ -1,0 +1,17 @@
+{
+  "schemaId": "9383817c-c747-41b9-b978-cc19bdea2f1b",
+  "fieldName": "Version",
+  "validations": [
+    {
+      "type": 0,
+      "errorMessage": "Version label is required",
+      "isActive": true
+    },
+    {
+      "type": 3,
+      "value": 50,
+      "errorMessage": "Version label is limited to 50 characters",
+      "isActive": true
+    }
+  ]
+}

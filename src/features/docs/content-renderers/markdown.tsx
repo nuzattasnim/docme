@@ -152,9 +152,8 @@ export function MarkdownRenderer({ content }: ContentRendererProps) {
           hr: ({ ...props }) => (
             <hr className="my-4 border-muted" {...props} />
           ),
-          img: ({ ...props }) => (
-            // eslint-disable-next-line jsx-a11y/alt-text
-            <img className="my-2 max-w-full rounded-md" {...props} />
+          img: ({ alt, ...props }) => (
+            <img className="my-2 max-w-full rounded-md" alt={alt ?? ""} {...props} />
           ),
         }}
       >

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   MoreVertical,
   ExternalLink,
@@ -8,10 +8,12 @@ import {
   AlertCircle,
   FileText,
   Layers,
+  RotateCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/layout/empty-state";
 import { ConfirmPopover } from "@/components/layout/confirm-popover";
 import {
@@ -32,10 +34,11 @@ import {
   useDeleteDoc,
   useListDocs,
 } from "./hooks";
-import { GraphQLError } from "@/features/data/gateway";
+import { errorMessage } from "@/features/data/errors";
+import { QueryErrorAlert } from "./components/query-error-alert";
 import { AddDocModal } from "./components/add-doc-modal";
 import { AddVersionModal } from "./components/add-version-modal";
-import type { Doc } from "./types";
+import { docStatus, type Doc } from "./types";
 
 /**
  * `/docs` — list of Docs. Each row has a dropdown menu (Open / Add
@@ -49,6 +52,7 @@ export function DocsListPage() {
   });
   const create = useCreateDoc();
   const remove = useDeleteDoc();
+  const navigate = useNavigate();
 
   const [error, setError] = useState<string | null>(null);
   const [addDocOpen, setAddDocOpen] = useState(false);
@@ -59,8 +63,8 @@ export function DocsListPage() {
       await remove.mutateAsync(itemId);
       toast.success(`Doc "${docName}" deleted`);
     } catch (err) {
-      setError(formatError(err));
-      toast.error(formatError(err));
+      setError(errorMessage(err));
+      toast.error(errorMessage(err));
     }
   }
 
@@ -98,12 +102,10 @@ export function DocsListPage() {
           <Skeleton className="h-16 w-full" />
         </div>
       ) : list.error ? (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load: {formatError(list.error)}
-          </AlertDescription>
-        </Alert>
+        <QueryErrorAlert
+          message={`Failed to load: ${errorMessage(list.error)}`}
+          onRetry={() => list.refetch()}
+        />
       ) : !list.data || list.data.items.length === 0 ? (
         <EmptyState
           icon={<FileText className="h-10 w-10" />}
@@ -138,7 +140,8 @@ export function DocsListPage() {
         open={addDocOpen}
         onClose={() => setAddDocOpen(false)}
         onCreate={async (input) => {
-          await create.mutateAsync(input);
+          const { docId } = await create.mutateAsync(input);
+          navigate(`/docs/${docId}`);
         }}
       />
     </div>
@@ -158,6 +161,30 @@ function DocRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [addVersionOpen, setAddVersionOpen] = useState(false);
+
+  if (docStatus(doc) === "Deleting") {
+    // C4: a cascade delete stopped partway. Not openable; Retry finishes it.
+    return (
+      <li className="flex items-center justify-between gap-3 p-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-medium text-muted-foreground">{doc.Name}</span>
+            <Badge variant="destructive">Deletion incomplete</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">Partly deleted. Retry to finish.</p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onDelete(doc.ItemId, doc.Name)}
+          disabled={deleting}
+          aria-label={`Retry deleting ${doc.Name}`}
+        >
+          <RotateCw className="h-3.5 w-3.5" /> Retry
+        </Button>
+      </li>
+    );
+  }
 
   return (
     <li className="flex items-center justify-between gap-3 p-4">
@@ -259,8 +286,3 @@ function formatDate(iso: string): string {
   }
 }
 
-function formatError(err: unknown): string {
-  if (err instanceof GraphQLError) return err.message;
-  if (err instanceof Error) return err.message;
-  return String(err);
-}

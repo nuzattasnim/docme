@@ -55,7 +55,7 @@ export function formatPdfTextToMarkdown(rawText: string): string {
     // Check if line starts with a bullet symbol (•, ·, ●, ○, ■, ▪, –, —)
     const bulletMatch = line.match(/^[\s•·●○■▪–—]+\s*(.*)/);
     const isBullet = !!bulletMatch;
-    const isMdList = /^[-*+]\s+/.test(line) || /^\d+[\.\)]\s+/.test(line);
+    const isMdList = /^[-*+]\s+/.test(line) || /^\d+[.)]\s+/.test(line);
 
     if (isBullet || isMdList) {
       const formattedLine = isBullet ? `- ${bulletMatch![1]}` : line;

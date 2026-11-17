@@ -2,154 +2,145 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Menu, Pencil, X, ArrowLeft } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Menu, Pencil, X, ArrowLeft, Layers, RotateCw } from "lucide-react";
 import { toast } from "sonner";
-import { GraphQLError } from "@/features/data/gateway";
+import { errorMessage } from "@/features/data/errors";
 import {
+  useDeleteDoc,
   useDeletePage,
+  useEnsureFirstVersion,
   useGetDoc,
   useGetDocVersion,
   useGetPage,
-  useListPageTitles,
+  useListLegacyPageSummaries,
+  useListPageSummaries,
+  useReorderPages,
   useUpdateDoc,
-  useUpdateDocVersion,
   useUpdatePage,
 } from "./hooks";
 import { PageListSidebar } from "./components/page-list-sidebar";
 import { PageContentView } from "./components/page-content-view";
 import { AddPageModal } from "./components/add-page-modal";
 import { EditDocModal } from "./components/edit-doc-modal";
+import { VersionsDialog } from "./components/versions-dialog";
+import { VersionStateAlert, VersionStateBadge } from "./components/version-state";
+import { QueryErrorAlert } from "./components/query-error-alert";
 import { useRecordRecentDoc } from "@/components/layout/breadcrumbs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import type {
-  DocUpdate,
-  DocVersionUpdate,
-  PageUpdate,
+  CURRENT_SCHEMA_VERSION,
+  docStatus,
+  versionState,
+  type DocUpdate,
+  type PageUpdate,
 } from "./types";
 import { useSidebarPrefs } from "@/components/layout/sidebar-prefs";
 import { cn } from "@/lib/utils";
+import { perfMark, perfMeasure } from "@/lib/perf";
 
 /**
- * `/docs/:docId` — read the Doc, its current DocVersion, and the Pages
- * that version owns. The page is laid out as a sidebar (page titles)
- * plus a main panel (the selected page's content).
+ * `/docs/:docId` — the Doc, its current DocVersion, and that version's pages.
  *
- * Header layout:
- *   [menu-toggle] [doc.Name ✎]
- *                  [doc.Description]
+ * Requests before the page list is visible (J1): Doc, DocVersion, page
+ * summaries (no Content). The selected page's content is a fourth, separate
+ * request (J2).
  *
- * The menu button (always visible) shows or hides the pages-list
- * sidebar. When the pages list is hidden, the grid becomes a single
- * column so the page content takes the full width.
+ * Non-editable states:
+ *   - Doc.Status "Deleting"           → Alert + Retry delete; nothing editable (C4)
+ *   - no CurrentVersion               → "Create first version" (C1)
+ *   - legacy / copying / copy failed  → read-only Alert, page controls hidden (C8, C2)
  */
 export const DocDetailPage = () => {
-  const { docId } = useParams<{ docId: string }>();
+  const { docId = "" } = useParams<{ docId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedPageId = searchParams.get("page");
-  const [error, setError] = useState<string | null>(null);
   const [editDocOpen, setEditDocOpen] = useState(false);
+  const [versionsOpen, setVersionsOpen] = useState(false);
 
-  // ---- 1. The Doc itself. ----
-  const docQuery = useGetDoc(docId ?? "");
-  const doc = docQuery.data;
+  useEffect(() => {
+    perfMark("doc-open:start");
+  }, [docId]);
 
-  // Record this doc in the "recent" list so the sidebar can show it.
+  const docQuery = useGetDoc(docId);
+  const doc = docQuery.data ?? undefined;
   useRecordRecentDoc(doc?.ItemId, doc?.Name);
 
-  // ---- 2. The current DocVersion. ----
-  const versionQuery = useGetDocVersion(doc?.CurrentVersion ?? "");
-  const version = versionQuery.data;
+  const deleting = doc ? docStatus(doc) === "Deleting" : false;
+  const versionQuery = useGetDocVersion(deleting ? "" : (doc?.CurrentVersion ?? ""));
+  const version = versionQuery.data ?? undefined;
+  const state = version ? versionState(version) : undefined;
+  const editable = state === "ready";
+  const isLegacy = version ? version.SchemaVersion !== CURRENT_SCHEMA_VERSION : false;
 
-  // ---- 3. The Page ItemIds the version owns, in order. ----
-  const pageIds = useMemo(() => version?.Pages ?? [], [version?.Pages]);
+  const summariesQuery = useListPageSummaries(version?.ItemId ?? "", !!version && !isLegacy);
+  const legacyIds = useMemo(() => (isLegacy ? (version?.Pages ?? []) : []), [isLegacy, version?.Pages]);
+  const legacyQuery = useListLegacyPageSummaries(legacyIds, isLegacy);
+  const pagesQuery = isLegacy ? legacyQuery : summariesQuery;
+  const pages = useMemo(() => pagesQuery.data ?? [], [pagesQuery.data]);
+  const pagesLoading = isLegacy ? legacyIds.length > 0 && legacyQuery.isPending : summariesQuery.isPending;
 
-  // ---- 4. Page titles only — drives the sidebar. ----
-  const titlesQuery = useListPageTitles(pageIds);
-  const titlesById = useMemo<Map<string, string>>(() => {
-    const map = new Map<string, string>();
-    for (const t of titlesQuery.data ?? []) {
-      map.set(t.ItemId, t.Title);
-    }
-    return map;
-  }, [titlesQuery.data]);
-
-  // ---- 5. Default selectedPage = first page id. ----
-  const firstPageId = pageIds[0] ?? null;
-  const selectedPageIsValid =
-    selectedPageId !== null && pageIds.includes(selectedPageId);
   useEffect(() => {
-    if (firstPageId && (selectedPageId === null || !selectedPageIsValid)) {
+    if (version && !pagesLoading) perfMeasure("doc-open", "doc-open:start", "doc-open:list-visible");
+  }, [version, pagesLoading]);
+
+  // Default selection = first page; drop a selection that isn't in this version.
+  const pageIds = useMemo(() => pages.map((p) => p.ItemId), [pages]);
+  const firstPageId = pageIds[0] ?? null;
+  const selectedPageIsValid = selectedPageId !== null && pageIds.includes(selectedPageId);
+  useEffect(() => {
+    if (pagesLoading) return;
+    if (firstPageId && !selectedPageIsValid) {
       const next = new URLSearchParams(searchParams);
       next.set("page", firstPageId);
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firstPageId, selectedPageIsValid]);
+  }, [firstPageId, selectedPageIsValid, pagesLoading]);
 
-  // ---- 6. The selected page's full record (drives the main panel). ----
-  const selectedPageQuery = useGetPage(selectedPageId ?? "");
-  const selectedPage = selectedPageQuery.data;
+  const activePageId = selectedPageIsValid ? selectedPageId : null;
+  const selectedPageQuery = useGetPage(activePageId ?? "");
+  const selectedPage = selectedPageQuery.data ?? undefined;
+  useEffect(() => {
+    if (selectedPage) perfMeasure("page-content", "page:select", "page:content-visible");
+  }, [selectedPage]);
 
-  // ---- mutations (all from ./hooks) ----
   const updateDocMut = useUpdateDoc();
-  const updateVersion = useUpdateDocVersion();
   const deletePageMut = useDeletePage();
   const updatePageMut = useUpdatePage();
+  const reorderMut = useReorderPages();
 
-  // ---- collapse state for the page list ----
   const pageSidebarCollapsed = useSidebarPrefs((s) => s.pageSidebarCollapsed);
   const togglePageSidebar = useSidebarPrefs((s) => s.togglePageSidebar);
 
-  // ---- handlers ----
   async function onSaveDoc(patch: DocUpdate) {
     if (!doc) throw new Error("No doc to save");
     await updateDocMut.mutateAsync({ docId: doc.ItemId, updates: patch });
   }
 
-  async function onSavePage(
-    pageId: string,
-    updates: PageUpdate,
-  ): Promise<void> {
+  async function onSavePage(pageId: string, updates: PageUpdate): Promise<void> {
     await updatePageMut.mutateAsync({ pageId, updates });
   }
 
-  async function onReorderPages(newPageIds: string[]): Promise<void> {
+  async function onReorderPages(orderedIds: string[]): Promise<void> {
     if (!version) throw new Error("No version to reorder pages in");
-    await updateVersion.mutateAsync({
-      versionId: version.ItemId,
-      updates: { Pages: newPageIds } as DocVersionUpdate,
-    });
+    await reorderMut.mutateAsync({ versionId: version.ItemId, orderedIds });
   }
 
   async function onRemovePage() {
-    if (!version || !selectedPage) return;
-    setError(null);
+    if (!selectedPage) return;
     try {
-      await deletePageMut.mutateAsync({
-        pageId: selectedPage.ItemId,
-        currentVersion: version,
-      });
+      await deletePageMut.mutateAsync(selectedPage.ItemId);
       toast.success(`Page "${selectedPage.Title}" deleted`);
     } catch (err) {
-      setError(formatError(err));
-      toast.error(formatError(err));
+      toast.error(errorMessage(err));
     }
   }
 
-  function onSelectPage(id: string) {
+  function selectPage(id: string) {
+    perfMark("page:select");
     const next = new URLSearchParams(searchParams);
     next.set("page", id);
-    setSearchParams(next);
-  }
-
-  function onPageAdded(newPageId: string) {
-    const next = new URLSearchParams(searchParams);
-    next.set("page", newPageId);
     setSearchParams(next);
   }
 
@@ -164,25 +155,38 @@ export const DocDetailPage = () => {
     );
   }
 
+  if (docQuery.error) {
+    return (
+      <PageMessage>
+        <QueryErrorAlert
+          message={`Failed to load doc: ${errorMessage(docQuery.error)}`}
+          onRetry={() => docQuery.refetch()}
+        />
+      </PageMessage>
+    );
+  }
+
   if (!doc) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 p-6">
+      <PageMessage>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>Doc not found.</AlertDescription>
         </Alert>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/docs">
-            <ArrowLeft /> Back to docs
-          </Link>
-        </Button>
-      </div>
+      </PageMessage>
+    );
+  }
+
+  if (deleting) {
+    return (
+      <PageMessage>
+        <DeletionIncompleteAlert docId={doc.ItemId} name={doc.Name} />
+      </PageMessage>
     );
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Doc header: [menu-toggle] [name ✎] / [description]. */}
       <div className="flex shrink-0 items-start gap-2 px-3 pt-3 pb-2">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -191,15 +195,9 @@ export const DocDetailPage = () => {
               size="icon"
               className="h-8 w-8 shrink-0"
               onClick={togglePageSidebar}
-              aria-label={
-                pageSidebarCollapsed ? "Show pages list" : "Hide pages list"
-              }
+              aria-label={pageSidebarCollapsed ? "Show pages list" : "Hide pages list"}
             >
-              {pageSidebarCollapsed ? (
-                <Menu className="h-4 w-4" />
-              ) : (
-                <X className="h-4 w-4" />
-              )}
+              {pageSidebarCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -226,71 +224,173 @@ export const DocDetailPage = () => {
             </Tooltip>
           </div>
           {doc.Description && (
-            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-              {doc.Description}
-            </p>
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{doc.Description}</p>
           )}
         </div>
+
+        {version && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => setVersionsOpen(true)}
+            aria-label={`Versions — current ${version.Version ?? "untitled"}`}
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span className="font-mono">{version.Version ?? "—"}</span>
+            <VersionStateBadge version={version} />
+          </Button>
+        )}
       </div>
 
-      {error && (
-        <Alert variant="destructive" className="mx-3 shrink-0">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Pages grid: when the page list is hidden, this becomes a
-          single column so the page content takes the full width. */}
-      {version && (
-        <div
-          className={cn(
-            "grid min-h-0 flex-1 items-start gap-3 overflow-hidden p-3 pt-2",
-            pageSidebarCollapsed
-              ? "grid-cols-[minmax(0,1fr)]"
-              : "grid-cols-[240px_minmax(0,1fr)]",
-          )}
-        >
-          <AddPageModal.Provider>
-            {!pageSidebarCollapsed && (
-              <PageListSidebar
-                version={version}
-                pageIds={pageIds}
-                titles={titlesById}
-                selectedPageId={selectedPageId}
-                onSelectPage={onSelectPage}
-                onPageAdded={onPageAdded}
-                onReorderPages={onReorderPages}
-                titlesLoading={titlesQuery.isPending}
-              />
-            )}
-            <PageContentView
-              page={selectedPage}
-              loading={selectedPageQuery.isPending}
-              error={selectedPageQuery.error}
-              onDelete={onRemovePage}
-              onSave={onSavePage}
-              deleting={deletePageMut.isPending}
-              saving={updatePageMut.isPending}
-            />
-          </AddPageModal.Provider>
+      {!doc.CurrentVersion ? (
+        <PageMessage>
+          <NoVersionState docId={doc.ItemId} />
+        </PageMessage>
+      ) : versionQuery.isPending ? (
+        <div className="p-3">
+          <Skeleton className="h-full min-h-40 w-full" />
         </div>
+      ) : versionQuery.error ? (
+        <PageMessage>
+          <QueryErrorAlert
+            message={`Failed to load version: ${errorMessage(versionQuery.error)}`}
+            onRetry={() => versionQuery.refetch()}
+          />
+        </PageMessage>
+      ) : !version ? (
+        <PageMessage>
+          <NoVersionState docId={doc.ItemId} missing />
+        </PageMessage>
+      ) : (
+        <>
+          {!editable && <VersionStateAlert version={version} className="mx-3 w-auto shrink-0" />}
+          {pagesQuery.error && (
+            <div className="mx-3 shrink-0">
+              <QueryErrorAlert
+                message={`Failed to load pages: ${errorMessage(pagesQuery.error)}`}
+                onRetry={() => pagesQuery.refetch()}
+              />
+            </div>
+          )}
+          <div
+            className={cn(
+              "grid min-h-0 flex-1 items-start gap-3 overflow-hidden p-3 pt-2",
+              pageSidebarCollapsed ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[240px_minmax(0,1fr)]",
+            )}
+          >
+            <AddPageModal.Provider>
+              {!pageSidebarCollapsed && (
+                <PageListSidebar
+                  docId={doc.ItemId}
+                  versionId={version.ItemId}
+                  pages={pages}
+                  readOnly={!editable}
+                  selectedPageId={activePageId}
+                  onSelectPage={selectPage}
+                  onPageAdded={selectPage}
+                  onReorderPages={onReorderPages}
+                  pagesLoading={pagesLoading}
+                />
+              )}
+              {pages.length === 0 && !pagesLoading ? (
+                <EmptyPagesHint readOnly={!editable} />
+              ) : (
+                <PageContentView
+                  page={selectedPage}
+                  loading={!activePageId || selectedPageQuery.isPending}
+                  error={selectedPageQuery.error}
+                  onRetry={() => selectedPageQuery.refetch()}
+                  readOnly={!editable}
+                  onDelete={onRemovePage}
+                  onSave={onSavePage}
+                  deleting={deletePageMut.isPending}
+                  saving={updatePageMut.isPending}
+                />
+              )}
+            </AddPageModal.Provider>
+          </div>
+        </>
       )}
 
-      {doc && (
-        <EditDocModal
-          open={editDocOpen}
-          onClose={() => setEditDocOpen(false)}
-          doc={doc}
-          onSave={onSaveDoc}
-        />
-      )}
+      <EditDocModal
+        open={editDocOpen}
+        onClose={() => setEditDocOpen(false)}
+        doc={doc}
+        onSave={onSaveDoc}
+      />
+      <VersionsDialog open={versionsOpen} onClose={() => setVersionsOpen(false)} doc={doc} />
     </div>
   );
 };
 
-function formatError(err: unknown): string {
-  if (err instanceof GraphQLError) return err.message;
-  if (err instanceof Error) return err.message;
-  return String(err);
+function PageMessage({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-4 p-6">
+      {children}
+      <Button asChild variant="outline" size="sm">
+        <Link to="/docs">
+          <ArrowLeft /> Back to docs
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
+function EmptyPagesHint({ readOnly }: { readOnly: boolean }) {
+  return (
+    <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+      {readOnly ? "This version has no pages." : "No pages yet. Click + in the pages list to add one."}
+    </div>
+  );
+}
+
+/** C1 — a doc whose creation stopped before it got a version. */
+function NoVersionState({ docId, missing }: { docId: string; missing?: boolean }) {
+  const ensure = useEnsureFirstVersion();
+  async function onCreate() {
+    try {
+      await ensure.mutateAsync(docId);
+      toast.success("First version ready");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+  return (
+    <Alert>
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>{missing ? "This doc's current version is missing" : "This doc has no version yet"}</AlertTitle>
+      <AlertDescription className="space-y-3">
+        <p>Create its first version to start adding pages.</p>
+        <Button size="sm" onClick={onCreate} disabled={ensure.isPending}>
+          {ensure.isPending ? "Creating…" : "Create first version"}
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+/** C4 — the cascade delete stopped partway. Retry finishes it. */
+function DeletionIncompleteAlert({ docId, name }: { docId: string; name: string }) {
+  const remove = useDeleteDoc();
+  async function onRetry() {
+    try {
+      await remove.mutateAsync(docId);
+      toast.success(`Doc "${name}" deleted`);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+  return (
+    <Alert variant="destructive">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>Deletion incomplete</AlertTitle>
+      <AlertDescription className="space-y-3">
+        <p>"{name}" is partly deleted and can't be edited. Retry to finish deleting it.</p>
+        <Button size="sm" variant="outline" onClick={onRetry} disabled={remove.isPending}>
+          <RotateCw className="h-3.5 w-3.5" /> {remove.isPending ? "Deleting…" : "Retry delete"}
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
 }

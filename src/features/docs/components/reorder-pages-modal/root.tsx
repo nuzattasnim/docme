@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -21,14 +21,14 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import type {} from "../../types";
+import type { PageSummary } from "../../types";
 import { useReorderPagesModal } from "./context";
 
 export interface ReorderPagesModalRootProps {
-  pageIds: string[];
-  titles: ReadonlyMap<string, string>;
-  /** Save the new ordering. Resolves when the mutation settles. */
-  onSave: (newPageIds: string[]) => Promise<void>;
+  /** The version's pages, in display order. */
+  pages: readonly PageSummary[];
+  /** Save the new ordering. Rejects if any page move failed. */
+  onSave: (orderedIds: string[]) => Promise<void>;
 }
 
 interface SortableRowProps {
@@ -80,31 +80,32 @@ function SortableRow({ id, index, title }: SortableRowProps) {
 }
 
 /**
- * Reorder pages modal — drag-and-drop list of every page in the
- * version's `Pages` array. One `updateVersion` mutation persists the
- * whole new order on Save.
+ * Reorder pages modal — drag-and-drop list of the version's pages. Save
+ * writes SortOrder only on the pages that moved (services.reorderPages).
+ *
+ * If some writes fail, the modal stays open with an Alert and keeps the
+ * user's order (C6); saving again applies only the writes still needed.
  */
-export function ReorderPagesModalRoot({
-  pageIds,
-  titles,
-  onSave,
-}: ReorderPagesModalRootProps) {
+export function ReorderPagesModalRoot({ pages, onSave }: ReorderPagesModalRootProps) {
   const { open, setOpen } = useReorderPagesModal();
+  const pageIds = pages.map((p) => p.ItemId);
+  const titles = new Map(pages.map((p) => [p.ItemId, p.Title]));
 
-  // Local working order; reset to `pageIds` whenever the modal opens
-  // so navigating between pages while it's closed never leaves stale
-  // state behind.
+  // Local working order. It is seeded only when the modal opens, so a refetch
+  // of the page list after a partial failure never discards the user's order.
   const [order, setOrder] = useState<string[]>(pageIds);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
-    if (open) {
-      setOrder(pageIds);
+    if (open && !wasOpen.current) {
+      setOrder(pages.map((p) => p.ItemId));
       setError(null);
       setSaving(false);
     }
-  }, [open, pageIds]);
+    wasOpen.current = open;
+  }, [open, pages]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -125,7 +126,9 @@ export function ReorderPagesModalRoot({
     setOrder((prev) => arrayMove(prev, oldIndex, newIndex));
   }
 
-  const dirty = !arraysEqual(order, pageIds);
+  // After a partial failure the stored order may already match some of the
+  // user's order; keep Save enabled while an error is shown so they can finish.
+  const dirty = !arraysEqual(order, pageIds) || error !== null;
 
   async function handleSave() {
     setSaving(true);

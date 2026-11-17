@@ -1,0 +1,99 @@
+{
+  "collectionName": "sb_Pages",
+  "fields": [
+    {
+      "name": "Title",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "ContentType",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "Content",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "DocId",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "ItemId of the owning Doc",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "VersionId",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "ItemId of the owning DocVersion",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "SortOrder",
+      "type": "Float",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Position within the version; spaced 1024 apart when assigned",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "SourcePageId",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "ItemId of the page this one was copied from",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    }
+  ],
+  "schemaName": "Page",
+  "schemaType": 1,
+  "isLive": true
+}

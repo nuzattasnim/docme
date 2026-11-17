@@ -1,0 +1,17 @@
+{
+  "schemaId": "ff167d7c-c851-4b1e-bb58-5aafe69779c3",
+  "fieldName": "Title",
+  "validations": [
+    {
+      "type": 0,
+      "errorMessage": "Title is required",
+      "isActive": true
+    },
+    {
+      "type": 3,
+      "value": 200,
+      "errorMessage": "Title is limited to 200 characters",
+      "isActive": true
+    }
+  ]
+}

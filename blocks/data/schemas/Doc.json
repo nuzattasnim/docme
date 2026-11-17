@@ -1,0 +1,60 @@
+{
+  "collectionName": "sb_Docs",
+  "fields": [
+    {
+      "name": "Name",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "Description",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "CurrentVersion",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "Status",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Active | Deleting. Missing is read as Active.",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    }
+  ],
+  "schemaName": "Doc",
+  "schemaType": 1,
+  "isLive": true
+}

@@ -59,25 +59,23 @@ export async function finishLogin(callbackUrl: string): Promise<void> {
   }
 }
 
-/** Step 5: refresh the hosted SSO session. Blocks rotates cookies on success. */
+/**
+ * Step 5: refresh the hosted SSO session. Blocks rotates the cookies on success.
+ *
+ * Sent through the SDK's HTTP client (credentials + x-blocks-key). Not
+ * `auth.oidc.refreshToken()`: the SDK's auth helpers return the body without
+ * checking the HTTP status, so a failed refresh would look like success.
+ * The refresh token travels in the HttpOnly cookie, never in the body.
+ */
 export async function refreshSession(): Promise<void> {
   assertEnv();
-
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: CLIENT_ID,
-  });
-
-  const res = await fetch(`${API}/iam/v4/oidc/token`, {
+  const body = new URLSearchParams({ grant_type: "refresh_token", client_id: CLIENT_ID });
+  const res = await getBlocksClient().http.send("/iam/v4/oidc/token", {
     method: "POST",
-    credentials: "include",
-    headers: {
-      "x-blocks-key": PROJECT_KEY,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
     body,
+    auth: false,
   });
   if (!res.ok) {
-    throw new Error(`token refresh failed: ${res.status} ${await res.text()}`);
+    throw new Error(`token refresh failed: ${res.status}`);
   }
 }

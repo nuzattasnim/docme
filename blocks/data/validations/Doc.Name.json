@@ -1,0 +1,17 @@
+{
+  "schemaId": "36050776-fa8d-45b6-8f08-efc8874dc4ad",
+  "fieldName": "Name",
+  "validations": [
+    {
+      "type": 0,
+      "errorMessage": "Name is required",
+      "isActive": true
+    },
+    {
+      "type": 3,
+      "value": 200,
+      "errorMessage": "Name is limited to 200 characters",
+      "isActive": true
+    }
+  ]
+}

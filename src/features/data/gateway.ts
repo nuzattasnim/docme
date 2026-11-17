@@ -1,19 +1,21 @@
 /**
- * GraphQL gateway client for the Blocks runtime data gateway.
+ * GraphQL access to the Blocks runtime Data Gateway, through the SDK.
  *
- * One endpoint, standard GraphQL body. Auth uses the same Blocks session cookie
- * as the rest of the app — `credentials: "include"` so the browser attaches the
- * HttpOnly SSO cookie. `x-blocks-key` is the project tenant id (PTENANT).
+ * Every call goes through `getBlocksClient().data.graphql`, which sends
+ * `x-blocks-key` and `credentials: "include"` (the hosted-login session
+ * cookie). There is no direct HTTP call to the gateway anywhere in `src/`.
  *
- * Per the blocks-data-gateway-crud skill, browser/runtime calls must use
- * `x-blocks-key: <PTENANT>` + the session cookie. PTOK (impersonated admin
- * tokens) must never be put in frontend code.
- *
- * See: blocks-skills/skills/blocks-data-gateway-crud/references/react.md
+ * Error mapping:
+ *   - `errors[]` in the response  → `GraphQLError` (code `GatewayError`), messages joined by "; "
+ *   - no `data` in the response   → `GraphQLError("Gateway returned empty data")`
+ *   - HTTP 401                    → one session refresh, then exactly one retry.
+ *     If the refresh (or the retry) fails, the auth store moves to
+ *     `unauthenticated`, the browser goes to /login, and `Unauthorized` is thrown.
  */
-
-const GATEWAY = `${import.meta.env.VITE_BLOCKS_API_URL}/data/v4/gateway`;
-const PROJECT_KEY = import.meta.env.VITE_BLOCKS_PROJECT_KEY as string;
+import { getBlocksClient } from "@/lib/blocks/client";
+import { useAuthStore } from "@/features/auth/auth-store";
+import { SessionExpiredError, withSession } from "@/features/auth/session";
+import { DocmeDataError } from "./errors";
 
 export interface ActionResponse {
   acknowledged: boolean;
@@ -38,78 +40,53 @@ export interface GqlError {
   path?: Array<string | number>;
 }
 
-export class GraphQLError extends Error {
+/** The gateway answered, but with GraphQL errors or without data. */
+export class GraphQLError extends DocmeDataError {
   constructor(public readonly errors: GqlError[]) {
-    super(errors.map((e) => e.message).join("; "));
+    super("GatewayError", errors.map((e) => e.message).join("; "));
     this.name = "GraphQLError";
   }
 }
 
 export interface GqlBody<T> {
-  data?: T;
-  errors?: GqlError[];
+  data?: T | null;
+  errors?: GqlError[] | null;
 }
 
-/**
- * Run a GraphQL query/mutation against the runtime gateway.
- *
- * - Sends `x-blocks-key: PTENANT` and `credentials: "include"` so the signed-in
- *   user's SSO cookie is sent.
- * - Throws `GraphQLError` on `{ errors: [...] }` responses; throws a plain
- *   `Error` on empty bodies or non-JSON.
- * - The 401-retry plumbing is left to the per-call sites (refresh-and-retry
- *   requires the auth store; doing it inside `gql` would create a circular
- *   import between this module and the auth store).
- */
+function unwrap<T>(body: unknown): T {
+  const parsed = (body ?? {}) as GqlBody<T>;
+  if (parsed.errors && parsed.errors.length > 0) {
+    throw new GraphQLError(parsed.errors);
+  }
+  if (parsed.data === undefined || parsed.data === null) {
+    throw new GraphQLError([{ message: "Gateway returned empty data" }]);
+  }
+  return parsed.data;
+}
+
+function sessionLost(cause: unknown): DocmeDataError {
+  useAuthStore.getState().reset();
+  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+    // A full navigation (not a router push) drops every in-flight query, so
+    // nothing re-triggers the 401 → refresh cycle: no loop.
+    window.location.replace("/login");
+  }
+  return new DocmeDataError("Unauthorized", "Your session has expired. Please sign in again.", {
+    cause,
+  });
+}
+
+/** Run a GraphQL query or mutation against the runtime gateway. */
 export async function gql<T>(
   query: string,
   variables: Record<string, unknown> = {},
-  init: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(GATEWAY, {
-    method: "POST",
-    credentials: "include",
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      "x-blocks-key": PROJECT_KEY,
-      ...(init.headers ?? {}),
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Gateway HTTP ${res.status}: ${text || res.statusText}`);
-  }
-
-  const body = (await res.json()) as GqlBody<T>;
-  if (body.errors?.length) {
-    throw new GraphQLError(body.errors);
-  }
-  if (!body.data) {
-    throw new Error("Gateway returned empty data");
-  }
-  return body.data;
-}
-
-/**
- * Variant that retries once on 401, refreshing the SSO session first.
- * Use for app-level fetches that should "just work" after token rotation.
- */
-export async function gqlWithAuthRetry<T>(
-  refresh: () => Promise<void>,
-  query: string,
-  variables: Record<string, unknown> = {},
-): Promise<T> {
+  let body: unknown;
   try {
-    return await gql<T>(query, variables);
+    body = await withSession(() => getBlocksClient().data.graphql({ query, variables }));
   } catch (err) {
-    const isUnauthorized =
-      err instanceof Error &&
-      (err.message.startsWith("Gateway HTTP 401") || err.message === "Gateway returned empty data");
-    if (!isUnauthorized) throw err;
-    await refresh();
-    return gql<T>(query, variables);
+    if (err instanceof SessionExpiredError) throw sessionLost(err);
+    throw err;
   }
+  return unwrap<T>(body);
 }

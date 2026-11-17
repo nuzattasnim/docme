@@ -1,267 +1,280 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+/**
+ * TanStack Query hooks over the docme services.
+ *
+ * - Queries retry up to 3 times with exponential backoff (C12); a still
+ *   failing query surfaces `error` for an Alert with Retry.
+ * - Mutations never retry automatically. Resumable operations (duplicate,
+ *   cascade delete, migration) expose an explicit, idempotent Retry instead.
+ * - Business logic lives in services.ts; hooks only wire caching.
+ */
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  addPage,
+  createBlankVersion,
   createDoc,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  createDocVersion,
-  getDocVersion,
-  getDocVersionsByDocId,
-  updateDocVersion,
-  deleteDocVersion,
-  deleteManyDocVersions,
-  createPage,
-  getPage,
-  getPageTitlesByIds,
-  updatePage,
+  deleteDocCascade,
   deletePage,
-  deleteManyPages,
+  deleteVersion,
+  duplicateVersion,
+  ensureFirstVersion,
+  getDoc,
+  getDocVersion,
+  getPage,
   listDocs,
+  listLegacyPageSummaries,
+  listPageSummaries,
+  listVersions,
+  publishVersion,
+  reorderPages,
+  resumeDuplicate,
+  setCurrentVersion,
+  setVersionActive,
+  unpublishVersion,
+  updateDoc,
+  updatePage,
+  type CopyProgress,
   type ListDocsOptions,
 } from "./services";
-import { type DocVersion, type DocUpdate, type DocVersionUpdate, type PageUpdate } from "./types";
-import { type ActionResponse } from "@/features/data/gateway";
+import type { DocUpdate, PageUpdate } from "./types";
+import { useRecentDocs } from "./recent-docs";
 
-// Query keys for invalidation matching make-crud.ts
-const KEYS = {
-  docs: ["data", "getDocs"],
-  versions: ["data", "getDocVersions"],
-  pages: ["data", "getPages"],
+export const KEYS = {
+  docs: ["docs"] as const,
+  docList: (opts: ListDocsOptions) => ["docs", "list", opts] as const,
+  doc: (docId: string) => ["docs", "one", docId] as const,
+  versions: ["versions"] as const,
+  versionsOfDoc: (docId: string) => ["versions", "byDoc", docId] as const,
+  version: (versionId: string) => ["versions", "one", versionId] as const,
+  pages: ["pages"] as const,
+  pageSummaries: (versionId: string) => ["pages", "summaries", versionId] as const,
+  legacyPageSummaries: (ids: readonly string[]) => ["pages", "legacy", ids.join(",")] as const,
+  page: (pageId: string) => ["pages", "one", pageId] as const,
 };
 
+const QUERY_RETRY = 3;
+
+function useInvalidate() {
+  const qc = useQueryClient();
+  return (...keys: ReadonlyArray<readonly unknown[]>) =>
+    Promise.all(keys.map((queryKey) => qc.invalidateQueries({ queryKey })));
+}
+
 // ==========================================
-// Document Hooks
+// Docs
 // ==========================================
 
-export function useGetDoc(docId: string) {
+export function useListDocs(opts: ListDocsOptions = {}) {
   return useQuery({
-    queryKey: [...KEYS.docs, docId],
-    queryFn: () => getDoc(docId),
-    enabled: !!docId,
+    queryKey: KEYS.docList(opts),
+    queryFn: () => listDocs(opts),
+    retry: QUERY_RETRY,
   });
 }
 
-/**
- * List docs with paging + order. Used by the docs-list page.
- * Re-fetches when paging/order change so navigating pages is cheap.
- */
-export function useListDocs(opts?: ListDocsOptions) {
+export function useGetDoc(docId: string) {
   return useQuery({
-    queryKey: [...KEYS.docs, "list", opts ?? {}],
-    queryFn: () => listDocs(opts),
+    queryKey: KEYS.doc(docId),
+    queryFn: () => getDoc(docId),
+    enabled: !!docId,
+    retry: QUERY_RETRY,
   });
 }
 
 export function useCreateDoc() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, { name: string; description?: string | null }>({
-    mutationFn: async ({ name, description }) => {
-      const resDoc = await createDoc(name, description);
-      if (!resDoc.itemId) throw new Error("Doc creation failed to return itemId");
-      const resVersion = await createDocVersion(resDoc.itemId, "0.0.1", []);
-      if (!resVersion.itemId) throw new Error("DocVersion creation failed to return itemId");
-      await updateDoc(resDoc.itemId, { CurrentVersion: resVersion.itemId });
-      return resDoc;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.docs });
-      qc.invalidateQueries({ queryKey: KEYS.versions });
-    },
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: createDoc,
+    onSettled: () => invalidate(KEYS.docs, KEYS.versions),
+  });
+}
+
+export function useEnsureFirstVersion() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (docId: string) => ensureFirstVersion(docId),
+    onSettled: () => invalidate(KEYS.docs, KEYS.versions),
   });
 }
 
 export function useUpdateDoc() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, { docId: string; updates: DocUpdate }>({
-    mutationFn: async ({ docId, updates }) => updateDoc(docId, updates),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.docs }),
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ docId, updates }: { docId: string; updates: DocUpdate }) =>
+      updateDoc(docId, updates),
+    onSettled: () => invalidate(KEYS.docs),
   });
 }
 
+/** Cascade delete. Safe to call again on a doc stuck in "Deleting". */
 export function useDeleteDoc() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, string>({
-    mutationFn: async (docId) => {
-      const versions = await getDocVersionsByDocId(docId);
-      const allPageIds = versions.flatMap((v) => v.Pages || []);
-      
-      // Delete all pages
-      if (allPageIds.length > 0) {
-        await deleteManyPages(allPageIds);
-      }
-      
-      // Delete all versions
-      await deleteManyDocVersions(docId);
-      
-      // Delete doc
-      return deleteDoc(docId);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.docs });
-      qc.invalidateQueries({ queryKey: KEYS.versions });
-      qc.invalidateQueries({ queryKey: KEYS.pages });
-    },
+  const invalidate = useInvalidate();
+  const removeRecent = useRecentDocs((s) => s.remove);
+  return useMutation({
+    mutationFn: (docId: string) => deleteDocCascade(docId),
+    onSuccess: (_data, docId) => removeRecent(docId),
+    onSettled: () => invalidate(KEYS.docs, KEYS.versions, KEYS.pages),
   });
 }
 
 // ==========================================
-// DocVersion Hooks
+// Versions
 // ==========================================
 
 export function useGetDocVersion(versionId: string) {
   return useQuery({
-    queryKey: [...KEYS.versions, versionId],
+    queryKey: KEYS.version(versionId),
     queryFn: () => getDocVersion(versionId),
     enabled: !!versionId,
+    retry: QUERY_RETRY,
   });
 }
 
-export function useCreateDocVersion() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, { docId: string; version: string; previousVersion: DocVersion }>({
-    mutationFn: async ({ docId, version, previousVersion }) => {
-      const pages = previousVersion.Pages || [];
-      const resVersion = await createDocVersion(docId, version, pages);
-      if (!resVersion.itemId) throw new Error("DocVersion creation failed to return itemId");
-      await updateDoc(docId, { CurrentVersion: resVersion.itemId });
-      return resVersion;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.docs });
-      qc.invalidateQueries({ queryKey: KEYS.versions });
-    },
+export function useListVersions(docId: string, enabled = true) {
+  return useQuery({
+    queryKey: KEYS.versionsOfDoc(docId),
+    queryFn: () => listVersions(docId),
+    enabled: !!docId && enabled,
+    retry: QUERY_RETRY,
   });
 }
 
-export function useUpdateDocVersion() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, { versionId: string; updates: DocVersionUpdate }>({
-    mutationFn: async ({ versionId, updates }) => updateDocVersion(versionId, updates),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.versions }),
+export function useDuplicateVersion() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({
+      onProgress,
+      ...input
+    }: {
+      docId: string;
+      sourceVersionId: string;
+      label: string;
+      onProgress?: CopyProgress;
+    }) => duplicateVersion(input, onProgress),
+    onSettled: () => invalidate(KEYS.docs, KEYS.versions, KEYS.pages),
   });
 }
 
-export function useDeleteDocVersion() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, string>({
-    mutationFn: async (versionId) => {
-      const version = await getDocVersion(versionId);
-      if (version && version.Pages && version.Pages.length > 0) {
-        await deleteManyPages(version.Pages);
-      }
-      return deleteDocVersion(versionId);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.versions });
-      qc.invalidateQueries({ queryKey: KEYS.pages });
-    },
+export function useResumeDuplicate() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ versionId, onProgress }: { versionId: string; onProgress?: CopyProgress }) =>
+      resumeDuplicate(versionId, onProgress),
+    onSettled: () => invalidate(KEYS.docs, KEYS.versions, KEYS.pages),
+  });
+}
+
+export function useCreateBlankVersion() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: createBlankVersion,
+    onSettled: () => invalidate(KEYS.docs, KEYS.versions),
+  });
+}
+
+export function useDeleteVersion() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: deleteVersion,
+    onSettled: () => invalidate(KEYS.versions, KEYS.pages),
   });
 }
 
 export function usePublishVersion() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, { docId: string; newVersionId: string; currentPublishedVersionId?: string | null }>({
-    mutationFn: async ({ docId, newVersionId, currentPublishedVersionId }) => {
-      if (currentPublishedVersionId) {
-        await updateDocVersion(currentPublishedVersionId, { IsPublished: false });
-      }
-      await updateDocVersion(newVersionId, { IsPublished: true });
-      return updateDoc(docId, { CurrentVersion: newVersionId });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.docs });
-      qc.invalidateQueries({ queryKey: KEYS.versions });
-    },
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: publishVersion,
+    onSettled: () => invalidate(KEYS.docs, KEYS.versions),
   });
 }
 
-export function useActivateVersion() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, string>({
-    mutationFn: async (versionId) => updateDocVersion(versionId, { IsActive: true }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.versions }),
+export function useUnpublishVersion() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (versionId: string) => unpublishVersion(versionId),
+    onSettled: () => invalidate(KEYS.versions),
   });
 }
 
-export function useDeactivateVersion() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, string>({
-    mutationFn: async (versionId) => updateDocVersion(versionId, { IsActive: false }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.versions }),
+export function useSetVersionActive() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ versionId, isActive }: { versionId: string; isActive: boolean }) =>
+      setVersionActive(versionId, isActive),
+    onSettled: () => invalidate(KEYS.versions),
   });
 }
 
+export function useSetCurrentVersion() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ docId, versionId }: { docId: string; versionId: string }) =>
+      setCurrentVersion(docId, versionId),
+    onSettled: () => invalidate(KEYS.docs),
+  });
+}
 
-/**
- * Titles-only batch fetch for the DocDetailPage sidebar. Takes a list
- * of Page ItemIds and returns `{ ItemId, Title }` records.
- *
- * The caller re-orders the result to match `DocVersion.Pages` (the
- * canonical order); this hook just fetches the metadata.
- *
- * Disabled when `pageIds` is empty so we don't fire a no-op query.
- */
-export function useListPageTitles(
-  pageIds: string[],
-): ReturnType<typeof useQuery<Array<{ ItemId: string; Title: string }>>> {
-  // Stable cache key — the ids joined as a string changes iff the set changes.
-  const cacheKey = pageIds.join(",");
+// ==========================================
+// Pages
+// ==========================================
+
+/** The page list for a v2 version: titles and order only, never Content. */
+export function useListPageSummaries(versionId: string, enabled = true) {
   return useQuery({
-    queryKey: [...KEYS.pages, "titles", cacheKey],
-    queryFn: () => getPageTitlesByIds(pageIds),
-    enabled: pageIds.length > 0,
+    queryKey: KEYS.pageSummaries(versionId),
+    queryFn: () => listPageSummaries(versionId),
+    enabled: !!versionId && enabled,
+    retry: QUERY_RETRY,
   });
 }
-// ==========================================
-// Page Hooks
-// ==========================================
+
+/** Read-only titles for an unmigrated version, in its legacy order. */
+export function useListLegacyPageSummaries(pageIds: readonly string[], enabled = true) {
+  return useQuery({
+    queryKey: KEYS.legacyPageSummaries(pageIds),
+    queryFn: () => listLegacyPageSummaries(pageIds),
+    enabled: enabled && pageIds.length > 0,
+    retry: QUERY_RETRY,
+  });
+}
 
 export function useGetPage(pageId: string) {
   return useQuery({
-    queryKey: [...KEYS.pages, pageId],
+    queryKey: KEYS.page(pageId),
     queryFn: () => getPage(pageId),
     enabled: !!pageId,
+    retry: QUERY_RETRY,
   });
 }
 
 export function useAddPage() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, { title: string; type: string; content: string; currentVersion: DocVersion }>({
-    mutationFn: async ({ title, type, content, currentVersion }) => {
-      const resPage = await createPage(title, type, content);
-      if (!resPage.itemId) throw new Error("Page creation failed to return itemId");
-      const currentPages = currentVersion.Pages || [];
-      const newPages = [...currentPages, resPage.itemId];
-      await updateDocVersion(currentVersion.ItemId, { Pages: newPages });
-      return resPage;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.pages });
-      qc.invalidateQueries({ queryKey: KEYS.versions });
-    },
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: addPage,
+    onSettled: (_id, _err, vars) => invalidate(KEYS.pageSummaries(vars.versionId)),
   });
 }
 
 export function useUpdatePage() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, { pageId: string; updates: PageUpdate }>({
-    mutationFn: async ({ pageId, updates }) => updatePage(pageId, updates),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.pages }),
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ pageId, updates }: { pageId: string; updates: PageUpdate }) =>
+      updatePage(pageId, updates),
+    onSettled: () => invalidate(KEYS.pages),
   });
 }
 
 export function useDeletePage() {
-  const qc = useQueryClient();
-  return useMutation<ActionResponse, Error, { pageId: string; currentVersion: DocVersion }>({
-    mutationFn: async ({ pageId, currentVersion }) => {
-      await deletePage(pageId);
-      const currentPages = currentVersion.Pages || [];
-      const newPages = currentPages.filter((id) => id !== pageId);
-      return updateDocVersion(currentVersion.ItemId, { Pages: newPages });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.pages });
-      qc.invalidateQueries({ queryKey: KEYS.versions });
-    },
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (pageId: string) => deletePage(pageId),
+    onSettled: () => invalidate(KEYS.pages),
+  });
+}
+
+export function useReorderPages() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: reorderPages,
+    onSettled: (_r, _e, vars) => invalidate(KEYS.pageSummaries(vars.versionId)),
   });
 }

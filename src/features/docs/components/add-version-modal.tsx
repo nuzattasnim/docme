@@ -3,14 +3,20 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Copy, FilePlus } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Copy, FilePlus, RotateCw } from "lucide-react";
 import { toast } from "sonner";
+import { errorMessage, isDocmeDataError } from "@/features/data/errors";
 import {
-  useCreateDocVersion,
+  useCreateBlankVersion,
+  useDuplicateVersion,
   useGetDocVersion,
+  useListPageSummaries,
+  useResumeDuplicate,
 } from "../hooks";
-import type { Doc, DocVersion } from "../types";
+import { CopyIncompleteError } from "../services";
+import { isVersionEditable, type Doc } from "../types";
+import { validateVersionLabel } from "../validation";
 
 export interface AddVersionModalProps {
   open: boolean;
@@ -21,89 +27,109 @@ export interface AddVersionModalProps {
 type VersionMode = "duplicate" | "blank";
 
 /**
- * AddVersionModal — creates a new DocVersion on an existing Doc.
- * Inputs map to `useCreateDocVersion`:
+ * Create a new DocVersion on an existing Doc.
  *
- *   { docId, version, previousVersion }
+ * - "duplicate" copies every page of the current version into new Page
+ *   records owned by the new version, with progress ("Copying pages 40 of
+ *   100"). If the copy stops partway, the new version is left "Copy failed",
+ *   CurrentVersion is unchanged, and Retry copies only the missing pages.
+ * - "blank" creates an empty version.
  *
- * - "duplicate" → previousVersion is the current version (copies its
- *   pages list onto the new version).
- * - "blank"     → previousVersion is a fabricated DocVersion with an
- *   empty Pages array. The hook copies `[]` and the new version
- *   starts with no pages.
- *
- * On success the hook auto-points `Doc.CurrentVersion` at the new
- * DocVersion, so the doc detail page opens on the new version.
+ * Either way the new version becomes Doc.CurrentVersion on success.
  */
 export function AddVersionModal({ open, onClose, doc }: AddVersionModalProps) {
   const [label, setLabel] = useState("");
   const [mode, setMode] = useState<VersionMode>("duplicate");
-  const [saving, setSaving] = useState(false);
+  const [labelError, setLabelError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [failedVersionId, setFailedVersionId] = useState<string | null>(null);
 
-  const createVersion = useCreateDocVersion();
+  const duplicate = useDuplicateVersion();
+  const blank = useCreateBlankVersion();
+  const resume = useResumeDuplicate();
+  const saving = duplicate.isPending || blank.isPending || resume.isPending;
 
-  // Fetch the current version only when we're going to duplicate —
-  // saves a network round-trip for blank mode.
-  const shouldFetch = open && mode === "duplicate" && !!doc.CurrentVersion;
-  const currentVersionQuery = useGetDocVersion(
-    shouldFetch ? (doc.CurrentVersion as string) : "",
-  );
+  const sourceId = open && doc.CurrentVersion ? doc.CurrentVersion : "";
+  const sourceQuery = useGetDocVersion(sourceId);
+  const source = sourceQuery.data ?? undefined;
+  const canDuplicate = !!source && isVersionEditable(source);
+  const pagesQuery = useListPageSummaries(sourceId, open && canDuplicate && mode === "duplicate");
 
   useEffect(() => {
     if (open) {
       setLabel("");
       setMode("duplicate");
+      setLabelError(null);
       setError(null);
-      setSaving(false);
+      setProgress(null);
+      setFailedVersionId(null);
     }
   }, [open]);
 
-  const trimmedLabel = label.trim();
+  useEffect(() => {
+    if (open && source && !canDuplicate) setMode("blank");
+  }, [open, source, canDuplicate]);
+
+  const onProgress = (done: number, total: number) => setProgress({ done, total });
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!trimmedLabel || saving) return;
+    if (saving) return;
+    const errors = validateVersionLabel(label);
+    setLabelError(errors.label ?? null);
+    if (errors.label) return;
+    const trimmed = label.trim();
 
-    const previousVersion: DocVersion =
-      mode === "duplicate"
-        ? currentVersionQuery.data ?? blankPrevious(doc.ItemId)
-        : blankPrevious(doc.ItemId);
-
-    setSaving(true);
     setError(null);
+    setProgress(null);
     try {
-      await createVersion.mutateAsync({
-        docId: doc.ItemId,
-        version: trimmedLabel,
-        previousVersion,
-      });
-      toast.success(
-        mode === "duplicate"
-          ? `Version "${trimmedLabel}" created (duplicated)`
-          : `Version "${trimmedLabel}" created (blank)`,
-      );
+      if (mode === "duplicate") {
+        if (!doc.CurrentVersion) throw new Error("This doc has no current version to duplicate");
+        await duplicate.mutateAsync({
+          docId: doc.ItemId,
+          sourceVersionId: doc.CurrentVersion,
+          label: trimmed,
+          onProgress,
+        });
+        toast.success(`Version "${trimmed}" created (duplicated)`);
+      } else {
+        await blank.mutateAsync({ docId: doc.ItemId, label: trimmed });
+        toast.success(`Version "${trimmed}" created (blank)`);
+      }
       onClose();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      if (err instanceof CopyIncompleteError) setFailedVersionId(err.versionId);
+      if (isDocmeDataError(err, "VersionLabelTaken")) setLabelError(err.message);
+      const msg = errorMessage(err);
       setError(msg);
       toast.error(msg);
-    } finally {
-      setSaving(false);
     }
   }
 
-  const pagesCount =
-    currentVersionQuery.data?.Pages?.length ?? (mode === "blank" ? 0 : null);
-  const showDuplicateHint =
-    mode === "duplicate" && pagesCount !== null && pagesCount !== undefined;
+  async function handleRetry() {
+    if (!failedVersionId) return;
+    setError(null);
+    setProgress(null);
+    try {
+      await resume.mutateAsync({ versionId: failedVersionId, onProgress });
+      toast.success(`Version "${label.trim()}" copied`);
+      onClose();
+    } catch (err) {
+      const msg = errorMessage(err);
+      setError(msg);
+      toast.error(msg);
+    }
+  }
+
+  const pagesCount = pagesQuery.data?.length;
 
   return (
     <Dialog
       isOpen={open}
       onClose={onClose}
       title="Add version"
-      description={`Create a new DocVersion for "${doc.Name}".`}
+      description={`Create a new version of "${doc.Name}".`}
       maxWidthClass="max-w-lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -116,20 +142,28 @@ export function AddVersionModal({ open, onClose, doc }: AddVersionModalProps) {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="e.g. 0.0.2"
-            disabled={saving}
-            required
+            disabled={saving || !!failedVersionId}
             autoFocus
+            aria-invalid={!!labelError}
+            aria-describedby={labelError ? "add-version-label-error" : undefined}
           />
+          {labelError && (
+            <p id="add-version-label-error" className="text-xs text-destructive">
+              {labelError}
+            </p>
+          )}
         </div>
 
-        <div className="space-y-2">
-          <Label>Start from</Label>
+        <fieldset className="space-y-2" disabled={saving || !!failedVersionId}>
+          <legend className="text-sm font-medium">Start from</legend>
           <div className="grid gap-2">
             <label
-              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
-                mode === "duplicate"
-                  ? "border-primary bg-primary/5"
-                  : "hover:bg-accent/40"
+              className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                !canDuplicate
+                  ? "cursor-not-allowed opacity-60"
+                  : mode === "duplicate"
+                    ? "cursor-pointer border-primary bg-primary/5"
+                    : "cursor-pointer hover:bg-accent/40"
               }`}
             >
               <input
@@ -138,31 +172,30 @@ export function AddVersionModal({ open, onClose, doc }: AddVersionModalProps) {
                 value="duplicate"
                 checked={mode === "duplicate"}
                 onChange={() => setMode("duplicate")}
-                disabled={saving}
+                disabled={!canDuplicate}
                 className="mt-0.5"
               />
               <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center gap-1.5 text-sm font-medium">
                   <Copy className="h-3.5 w-3.5" />
                   Duplicate current version
-                  {showDuplicateHint && (
+                  {pagesCount !== undefined && (
                     <span className="text-xs text-muted-foreground">
                       ({pagesCount} page{pagesCount === 1 ? "" : "s"})
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Copies the current version's page list onto the new
-                  version. You can add, remove, or reorder pages after.
+                  {canDuplicate || !source
+                    ? "Copies every page into the new version. Editing the copy never changes the original."
+                    : "Not available: the current version isn't ready (it needs migration or its copy is incomplete)."}
                 </p>
               </div>
             </label>
 
             <label
               className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
-                mode === "blank"
-                  ? "border-primary bg-primary/5"
-                  : "hover:bg-accent/40"
+                mode === "blank" ? "border-primary bg-primary/5" : "hover:bg-accent/40"
               }`}
             >
               <input
@@ -171,7 +204,6 @@ export function AddVersionModal({ open, onClose, doc }: AddVersionModalProps) {
                 value="blank"
                 checked={mode === "blank"}
                 onChange={() => setMode("blank")}
-                disabled={saving}
                 className="mt-0.5"
               />
               <div className="min-w-0 space-y-0.5">
@@ -180,51 +212,49 @@ export function AddVersionModal({ open, onClose, doc }: AddVersionModalProps) {
                   Blank version
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Starts with no pages. Use this when the new version
-                  represents a major rewrite.
+                  Starts with no pages. Use this when the new version is a major rewrite.
                 </p>
               </div>
             </label>
           </div>
-        </div>
+        </fieldset>
 
-        {error && (
+        <p aria-live="polite" className="text-sm text-muted-foreground">
+          {saving && progress ? `Copying pages ${progress.done} of ${progress.total}…` : ""}
+        </p>
+
+        {failedVersionId ? (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertTitle>Copy incomplete</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>{error}</p>
+              <p>The new version stays read-only, and the current version is unchanged, until the copy finishes.</p>
+              <Button type="button" size="sm" variant="outline" onClick={handleRetry} disabled={saving}>
+                <RotateCw className="h-3.5 w-3.5" /> {resume.isPending ? "Copying…" : "Retry"}
+              </Button>
+            </AlertDescription>
           </Alert>
+        ) : (
+          error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )
         )}
 
         <div className="flex items-center justify-end gap-3 border-t pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={saving}
-          >
-            Cancel
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            {failedVersionId ? "Close" : "Cancel"}
           </Button>
-          <Button type="submit" disabled={saving || !trimmedLabel}>
-            {saving ? "Creating…" : "Create version"}
-          </Button>
+          {!failedVersionId && (
+            <Button type="submit" disabled={saving || !label.trim()}>
+              {saving ? "Creating…" : "Create version"}
+            </Button>
+          )}
         </div>
       </form>
     </Dialog>
   );
-}
-
-/**
- * Fabricate a DocVersion with an empty Pages array — used for the
- * "blank version" path so `useCreateDocVersion` copies `[]` onto the
- * new version. Only `ItemId` + `Pages` are actually read by the hook.
- */
-function blankPrevious(docId: string): DocVersion {
-  return {
-    ItemId: "",
-    DocId: docId,
-    Version: "",
-    Pages: [],
-    IsPublished: false,
-    IsActive: true,
-  };
 }

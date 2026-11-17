@@ -14,6 +14,8 @@ export interface RecentDoc {
 interface RecentDocsState {
   recents: RecentDoc[];
   record: (itemId: string, name: string) => void;
+  /** Drop a doc, e.g. after it is deleted. */
+  remove: (itemId: string) => void;
   clear: () => void;
 }
 
@@ -32,6 +34,8 @@ export const useRecentDocs = create<RecentDocsState>()(
           );
           return { recents: next };
         }),
+      remove: (itemId) =>
+        set((state) => ({ recents: state.recents.filter((r) => r.itemId !== itemId) })),
       clear: () => set({ recents: [] }),
     }),
     { name: "docme.recent-docs" },

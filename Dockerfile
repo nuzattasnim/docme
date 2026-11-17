@@ -19,12 +19,18 @@ ARG VITE_BLOCKS_OIDC_CLIENT_ID
 ARG VITE_BLOCKS_OIDC_URL=https://iam.seliseblocks.com
 # Optional: leave empty so the app uses <its own origin>/login/callback.
 ARG VITE_BLOCKS_REDIRECT_URI=
+# Admin tools (SPEC1 data migration, SPEC2 S0 probe). Off unless the repo's
+# secret set turns them on for a temporary tools deploy; turn them off again after.
+ARG VITE_ENABLE_MIGRATION=false
+ARG VITE_ENABLE_SPIKE=false
 
 ENV VITE_BLOCKS_API_URL=${VITE_BLOCKS_API_URL} \
     VITE_BLOCKS_PROJECT_KEY=${VITE_BLOCKS_PROJECT_KEY} \
     VITE_BLOCKS_OIDC_CLIENT_ID=${VITE_BLOCKS_OIDC_CLIENT_ID} \
     VITE_BLOCKS_OIDC_URL=${VITE_BLOCKS_OIDC_URL} \
-    VITE_BLOCKS_REDIRECT_URI=${VITE_BLOCKS_REDIRECT_URI}
+    VITE_BLOCKS_REDIRECT_URI=${VITE_BLOCKS_REDIRECT_URI} \
+    VITE_ENABLE_MIGRATION=${VITE_ENABLE_MIGRATION} \
+    VITE_ENABLE_SPIKE=${VITE_ENABLE_SPIKE}
 
 RUN npx tsc -b \
   && NODE_OPTIONS="--max-old-space-size=4096" npx vite build --mode "${ci_build}"

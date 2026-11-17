@@ -8,6 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import type { Page, PageUpdate } from "../types";
+import { LIMITS, hasErrors, validatePageInput, type FieldErrors } from "../validation";
+import { errorMessage, isDocmeDataError } from "@/features/data/errors";
 
 const CONTENT_TYPES = [
   { value: "md", label: "Markdown (.md)" },
@@ -37,6 +39,7 @@ export function EditPageModal({
   const [contentDraft, setContentDraft] = useState(page.Content ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
     if (open) {
@@ -44,6 +47,7 @@ export function EditPageModal({
       setTypeDraft(page.ContentType ?? "md");
       setContentDraft(page.Content ?? "");
       setError(null);
+      setFieldErrors({});
       setSaving(false);
     }
   }, [open, page]);
@@ -56,9 +60,13 @@ export function EditPageModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!dirty || saving) return;
+    // C7: block the save with inline errors; no request is sent.
+    const errors = validatePageInput({ title: titleDraft, content: contentDraft });
+    setFieldErrors(errors);
+    if (hasErrors(errors)) return;
     const updates: PageUpdate = {};
     const trimmedTitle = titleDraft.trim();
-    if (trimmedTitle && trimmedTitle !== page.Title) updates.Title = trimmedTitle;
+    if (trimmedTitle !== page.Title) updates.Title = trimmedTitle;
     if (typeDraft !== (page.ContentType ?? "md"))
       updates.ContentType = typeDraft;
     if (contentDraft !== (page.Content ?? "")) updates.Content = contentDraft;
@@ -71,7 +79,8 @@ export function EditPageModal({
       toast.success(`Page "${trimmedTitle}" updated`);
       onClose();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      if (isDocmeDataError(err) && err.field) setFieldErrors({ [err.field]: err.message });
+      const msg = errorMessage(err);
       setError(msg);
       toast.error(msg);
     } finally {
@@ -99,9 +108,15 @@ export function EditPageModal({
               onChange={(e) => setTitleDraft(e.target.value)}
               placeholder="Page title"
               disabled={saving}
-              required
               autoFocus
+              aria-invalid={!!fieldErrors.title}
+              aria-describedby={fieldErrors.title ? "edit-page-title-error" : undefined}
             />
+            {fieldErrors.title && (
+              <p id="edit-page-title-error" className="text-xs text-destructive">
+                {fieldErrors.title}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -136,7 +151,16 @@ export function EditPageModal({
             rows={18}
             className="font-mono text-xs"
             disabled={saving}
+            aria-invalid={!!fieldErrors.content}
+            aria-describedby="edit-page-content-help"
           />
+          <p
+            id="edit-page-content-help"
+            className={fieldErrors.content ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
+          >
+            {fieldErrors.content ??
+              `${contentDraft.length.toLocaleString("en-US")} / ${LIMITS.pageContent.toLocaleString("en-US")} characters`}
+          </p>
         </div>
 
         {error && (
@@ -157,7 +181,7 @@ export function EditPageModal({
           </Button>
           <Button
             type="submit"
-            disabled={saving || !dirty || !titleDraft.trim()}
+            disabled={saving || !dirty}
           >
             {saving ? "Saving…" : "Save"}
           </Button>

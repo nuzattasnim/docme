@@ -1,0 +1,112 @@
+{
+  "collectionName": "sb_DocVersions",
+  "fields": [
+    {
+      "name": "DocId",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "Version",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "Pages",
+      "type": "String",
+      "isArray": true,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Deprecated: legacy ordered page ids. Read only by the migration; never written by new code.",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "IsPublished",
+      "type": "Boolean",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "IsActive",
+      "type": "Boolean",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "Status",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Ready | Copying | CopyFailed",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "SourceVersionId",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "ItemId of the DocVersion this one was duplicated from",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "SchemaVersion",
+      "type": "Int",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "2 for the v2 data model; missing means legacy (unmigrated)",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    }
+  ],
+  "schemaName": "DocVersion",
+  "schemaType": 1,
+  "isLive": true
+}

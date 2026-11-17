@@ -18,7 +18,8 @@ import {
 	extractTextFromFile,
 	formatPdfTextToMarkdown,
 } from "../../utils/file-extractor";
-import type { DocVersion } from "../../types";
+import { LIMITS, hasErrors, validatePageInput, type FieldErrors } from "../../validation";
+import { errorMessage, isDocmeDataError } from "@/features/data/errors";
 import {
 	Upload,
 	FileText,
@@ -34,7 +35,8 @@ import { toast } from "sonner";
 const PAGINATED_EXTENSIONS = ["pdf"];
 
 export interface AddPageModalRootProps {
-	version: DocVersion;
+	docId: string;
+	versionId: string;
 	onPageAdded: (newPageId: string) => void;
 }
 
@@ -43,7 +45,8 @@ export interface AddPageModalRootProps {
  * the trigger can live anywhere inside the provider.
  */
 export function AddPageModalRoot({
-	version,
+	docId,
+	versionId,
 	onPageAdded,
 }: AddPageModalRootProps) {
 	const { open, setOpen } = useAddPageModal();
@@ -59,6 +62,7 @@ export function AddPageModalRoot({
 	const [extractError, setExtractError] = useState<string | null>(null);
 	const [extractSuccess, setExtractSuccess] = useState<string | null>(null);
 	const [submitError, setSubmitError] = useState<string | null>(null);
+	const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
 	// Reset form whenever the modal opens (clean slate each time).
 	useEffect(() => {
@@ -73,6 +77,7 @@ export function AddPageModalRoot({
 			setExtractError(null);
 			setExtractSuccess(null);
 			setSubmitError(null);
+			setFieldErrors({});
 		}
 	}, [open]);
 
@@ -131,30 +136,30 @@ export function AddPageModalRoot({
 	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
 		const trimmedTitle = title.trim();
-		if (!trimmedTitle) {
-			setSubmitError("Page title is required.");
-			return;
-		}
-
-		setSubmitError(null);
-
 		const formattedContent = formatPdfTextToMarkdown(content);
 
+		// C7: block the save with inline errors; no request is sent.
+		const errors = validatePageInput({ title, content: formattedContent });
+		setFieldErrors(errors);
+		setSubmitError(null);
+		if (hasErrors(errors)) return;
+
 		try {
-			const res = await addPageMutation.mutateAsync({
+			const pageId = await addPageMutation.mutateAsync({
+				docId,
+				versionId,
 				title: trimmedTitle,
-				type: contentType,
+				contentType,
 				content: formattedContent,
-				currentVersion: version,
 			});
-			if (!res.itemId) {
-				throw new Error("Page creation returned no itemId");
-			}
-			onPageAdded(res.itemId);
+			onPageAdded(pageId);
 			toast.success(`Page "${trimmedTitle}" added`);
 			handleClose();
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
+			if (isDocmeDataError(err) && err.field) {
+				setFieldErrors({ [err.field]: err.message });
+			}
+			const msg = errorMessage(err);
 			setSubmitError(msg);
 			toast.error(msg);
 		}
@@ -182,8 +187,14 @@ export function AddPageModalRoot({
 							onChange={(e) => setTitle(e.target.value)}
 							placeholder="e.g. Getting Started"
 							disabled={addPageMutation.isPending}
-							required
+							aria-invalid={!!fieldErrors.title}
+							aria-describedby={fieldErrors.title ? "page-title-error" : undefined}
 						/>
+						{fieldErrors.title && (
+							<p id="page-title-error" className="text-xs text-destructive">
+								{fieldErrors.title}
+							</p>
+						)}
 					</div>
 
 					<div className="space-y-1.5">
@@ -340,7 +351,20 @@ export function AddPageModalRoot({
 						rows={10}
 						className="font-mono text-xs"
 						disabled={addPageMutation.isPending || isExtracting}
+						aria-invalid={!!fieldErrors.content}
+						aria-describedby="page-content-help"
 					/>
+					<p
+						id="page-content-help"
+						className={
+							fieldErrors.content
+								? "text-xs text-destructive"
+								: "text-xs text-muted-foreground"
+						}
+					>
+						{fieldErrors.content ??
+							`${content.length.toLocaleString("en-US")} / ${LIMITS.pageContent.toLocaleString("en-US")} characters`}
+					</p>
 				</div>
 
 				{submitError && (
@@ -363,8 +387,7 @@ export function AddPageModalRoot({
 						type="submit"
 						disabled={
 							addPageMutation.isPending ||
-							isExtracting ||
-							!title.trim()
+							isExtracting
 						}
 					>
 						{addPageMutation.isPending

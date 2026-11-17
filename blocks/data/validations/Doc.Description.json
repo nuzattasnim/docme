@@ -1,0 +1,12 @@
+{
+  "schemaId": "36050776-fa8d-45b6-8f08-efc8874dc4ad",
+  "fieldName": "Description",
+  "validations": [
+    {
+      "type": 3,
+      "value": 2000,
+      "errorMessage": "Description is limited to 2,000 characters",
+      "isActive": true
+    }
+  ]
+}

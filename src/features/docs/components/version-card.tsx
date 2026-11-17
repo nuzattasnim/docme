@@ -1,127 +1,108 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Trash2, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import type { DocVersion } from "../types";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ConfirmPopover } from "@/components/layout/confirm-popover";
+import { CURRENT_SCHEMA_VERSION, isVersionEditable, type DocVersion } from "../types";
 import { VersionStatusBadges } from "./version-status-badges";
+import { VersionStateAlert, VersionStateBadge } from "./version-state";
 
 export interface VersionCardProps {
-	version: DocVersion;
-	onSaveLabel: (label: string | null) => Promise<void>;
-	onTogglePublished: () => Promise<void>;
-	onToggleActive: () => Promise<void>;
-	saving?: boolean;
+  version: DocVersion;
+  /** This version is Doc.CurrentVersion. */
+  isCurrent: boolean;
+  onOpen: () => Promise<void>;
+  onTogglePublished: () => Promise<void>;
+  onToggleActive: () => Promise<void>;
+  onDelete: () => Promise<void>;
+  busy?: boolean;
 }
 
 /**
- * Editable DocVersion card — label input, status badges, save button.
- * The "New version" form lives next to this card in the parent.
+ * One DocVersion in the Versions dialog: label, publish/active pills, its
+ * data state (Copying, Copy failed, Needs migration) and its actions.
+ *
+ * The current version can't be deleted (C3); a legacy version can't be
+ * deleted until it is migrated, because its pages may be shared.
  */
 export function VersionCard({
-	version,
-	onSaveLabel,
-	onTogglePublished,
-	onToggleActive,
-	saving,
+  version,
+  isCurrent,
+  onOpen,
+  onTogglePublished,
+  onToggleActive,
+  onDelete,
+  busy,
 }: VersionCardProps) {
-	const [labelDraft, setLabelDraft] = useState(version.Version ?? "");
-	const labelDirty = labelDraft.trim() !== (version.Version ?? "");
+  const editable = isVersionEditable(version);
+  const isLegacy = version.SchemaVersion !== CURRENT_SCHEMA_VERSION;
+  const deleteBlockedReason = isCurrent
+    ? "Switch to another version before deleting it"
+    : isLegacy
+      ? "Run the migration before deleting this version"
+      : null;
 
-	useEffect(() => {
-		setLabelDraft(version.Version ?? "");
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [version.ItemId]);
-
-	async function handleSaveLabel() {
-		if (!labelDirty) return;
-		await onSaveLabel(labelDraft.trim() || null);
-	}
-
-	return (
-		<Card>
-			<CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-				<div className="space-y-1">
-					<CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-						Current DocVersion
-					</CardTitle>
-					<CardDescription className="font-mono text-xs">
-						{version.ItemId}
-					</CardDescription>
-				</div>
-				<VersionStatusBadges
-					isPublished={version.IsPublished}
-					isActive={version.IsActive}
-					onTogglePublished={onTogglePublished}
-					onToggleActive={onToggleActive}
-					disabled={saving}
-				/>
-			</CardHeader>
-			<CardContent>
-				<div className="flex items-center gap-2">
-					<label className="flex flex-1 items-center gap-2">
-						<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-							Label
-						</span>
-						<Input
-							value={labelDraft}
-							onChange={(e) => setLabelDraft(e.target.value)}
-							placeholder="e.g. 0.0.1"
-							disabled={saving}
-						/>
-					</label>
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={handleSaveLabel}
-						disabled={saving || !labelDirty}
-					>
-						{saving ? "Saving…" : "Save label"}
-					</Button>
-				</div>
-			</CardContent>
-		</Card>
-	);
-}
-
-export interface NewVersionFormProps {
-	onCreate: (label: string | null) => Promise<void>;
-	busy?: boolean;
-}
-
-/**
- * "Create a new DocVersion" form. Used both when there's no version yet
- * (Doc with no CurrentVersion) and to start a successor version.
- */
-export function NewVersionForm({ onCreate, busy }: NewVersionFormProps) {
-	const [label, setLabel] = useState("");
-
-	async function handleSubmit(e: FormEvent) {
-		e.preventDefault();
-		await onCreate(label.trim() || null);
-		setLabel("");
-	}
-
-	return (
-		<form
-			onSubmit={handleSubmit}
-			className="flex items-center gap-2 rounded-md border bg-background p-2"
-		>
-			<Input
-				value={label}
-				onChange={(e) => setLabel(e.target.value)}
-				placeholder="New version label (e.g. 0.0.2) — optional"
-				disabled={busy}
-				className="border-input bg-card"
-			/>
-			<Button type="submit" size="sm" variant="outline" disabled={busy}>
-				{busy ? "Creating…" : "New version"}
-			</Button>
-		</form>
-	);
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0 p-4">
+        <div className="min-w-0 space-y-1">
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            <span className="font-mono">{version.Version || "—"}</span>
+            {isCurrent && <Badge variant="outline">Current</Badge>}
+            <VersionStateBadge version={version} />
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">{version.ItemId}</CardDescription>
+        </div>
+        <VersionStatusBadges
+          isPublished={version.IsPublished}
+          isActive={version.IsActive}
+          onTogglePublished={onTogglePublished}
+          onToggleActive={onToggleActive}
+          disabled={busy || !editable}
+        />
+      </CardHeader>
+      <CardContent className="space-y-3 p-4 pt-0">
+        {!editable && <VersionStateAlert version={version} />}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {!isCurrent && (
+            <Button size="sm" variant="outline" onClick={onOpen} disabled={busy}>
+              <FolderOpen className="h-3.5 w-3.5" /> Open
+            </Button>
+          )}
+          {deleteBlockedReason ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {/* A disabled button gets no pointer events; the span carries the tooltip and focus. */}
+                <span tabIndex={0} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled
+                    aria-label={`Delete version ${version.Version ?? ""} — ${deleteBlockedReason}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">{deleteBlockedReason}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <ConfirmPopover
+              trigger={
+                <Button size="sm" variant="outline" disabled={busy}>
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
+              }
+              title={`Delete version ${version.Version ?? ""}?`}
+              description="Removes this version and its pages. Other versions are not affected."
+              confirmLabel="Delete"
+              destructive
+              onConfirm={onDelete}
+            />
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
