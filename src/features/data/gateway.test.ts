@@ -39,6 +39,17 @@ describe("gql error mapping (C12)", () => {
     expect(err.message).toBe("first; second");
   });
 
+  it("recovers GraphQL errors from an HTTP 400 body, with the operation name", async () => {
+    graphql.mockRejectedValue(
+      new BlocksApiError(400, "", { errors: [{ message: "The field `Foo` does not exist on `DocVersion`." }] }),
+    );
+    const err = await gql<never>("query($w: X) { getDocVersions(where: $w) { items { Foo } } }").catch(
+      (e: DocmeDataError) => e,
+    );
+    expect(err).toBeInstanceOf(GraphQLError);
+    expect(err.message).toBe("getDocVersions: The field `Foo` does not exist on `DocVersion`.");
+  });
+
   it("throws when data is missing", async () => {
     graphql.mockResolvedValue({});
     await expect(gql("query {}")).rejects.toThrow("Gateway returned empty data");

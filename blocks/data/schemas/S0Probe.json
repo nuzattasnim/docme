@@ -1,0 +1,34 @@
+{
+  "collectionName": "sb_S0Probes",
+  "fields": [
+    {
+      "name": "Name",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Probe label",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    },
+    {
+      "name": "Visible",
+      "type": "Boolean",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Q3(c): field equals constant",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": null
+    }
+  ],
+  "schemaName": "S0Probe",
+  "schemaType": 1,
+  "isLive": true
+}

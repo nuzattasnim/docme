@@ -22,7 +22,7 @@ type PanelState =
   | { kind: "scanned"; scan: ScanResult }
   | { kind: "running"; scan: ScanResult; current: number; total: number }
   | { kind: "report"; report: MigrationReport }
-  | { kind: "error"; message: string; retry: () => void };
+  | { kind: "error"; title: string; message: string; retry: () => void };
 
 const SCAN_LABELS: Array<[keyof Omit<ScanResult, "orphans">, string]> = [
   ["docs", "Docs"],
@@ -46,7 +46,7 @@ export default function MigrationPanel() {
     try {
       setState({ kind: "scanned", scan: await scanMigration() });
     } catch (err) {
-      setState({ kind: "error", message: errorMessage(err), retry: scan });
+      setState({ kind: "error", title: "Scan failed", message: errorMessage(err), retry: scan });
     }
   }
 
@@ -62,7 +62,7 @@ export default function MigrationPanel() {
       else toast.success(`Migration finished: ${report.rows.length} version(s) migrated`);
     } catch (err) {
       // Running again resumes: migrated versions are skipped, copies are not repeated.
-      setState({ kind: "error", message: errorMessage(err), retry: () => run(scanResult) });
+      setState({ kind: "error", title: "Migration step failed", message: errorMessage(err), retry: () => run(scanResult) });
       toast.error(errorMessage(err));
     }
   }
@@ -138,7 +138,7 @@ export default function MigrationPanel() {
         {state.kind === "error" && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Migration step failed</AlertTitle>
+            <AlertTitle>{state.title}</AlertTitle>
             <AlertDescription className="space-y-2">
               <p>{state.message}</p>
               <p>Retrying is safe: finished versions are skipped and no page is copied twice.</p>

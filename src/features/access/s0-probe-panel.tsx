@@ -61,6 +61,8 @@ function errorBody(err: unknown) {
 }
 
 const DOC_FIELDS = "ItemId Name OrganizationId CreatedBy CreatedDate";
+const RULE_MARK = "S0 rule probe";
+const RULE_FIELDS = "ItemId Name Visible OrganizationId CreatedBy";
 
 export default function S0ProbePanel() {
   const [log, setLog] = useState<LogEntry[]>(readLog);
@@ -190,6 +192,37 @@ export default function S0ProbePanel() {
       ),
     );
 
+  // Q3 enforcement: S0Probe has a READ rule (OrganizationId = Auth.organizationId
+  // AND Auth.roles contains clouduser AND Visible = true AND CreatedBy = Auth.userId).
+  // Insert one visible and one hidden row in the active org, then list what the
+  // gateway lets this user see.
+  const listProbeRows = () =>
+    gql<{ getS0Probes: { totalCount: number; items: unknown[] } }>(
+      `query { getS0Probes(paging: {pageNo: 1, pageSize: 50}) { totalCount items { ${RULE_FIELDS} } } }`,
+    );
+
+  const ruleInsert = () =>
+    step("Q3 insert S0Probe rows (Visible true + false)", { Name: RULE_MARK }, async () => {
+      const ins = await gql(
+        `mutation($a: S0ProbeInsertInput!, $b: S0ProbeInsertInput!) {
+          shown: insertS0Probe(input: $a) { acknowledged itemId message }
+          hidden: insertS0Probe(input: $b) { acknowledged itemId message }
+        }`,
+        { a: { Name: RULE_MARK, Visible: true }, b: { Name: RULE_MARK, Visible: false } },
+      );
+      return { insert: ins, listAfter: await listProbeRows() };
+    });
+
+  const ruleList = () => step("Q3 list S0Probe rows (rule applied)", "getS0Probes", listProbeRows);
+
+  const ruleCleanup = () =>
+    step("cleanup S0Probe rows", { Name: RULE_MARK }, () =>
+      gql(
+        `mutation($where: S0ProbeFilterInput) { deleteS0Probe(where: $where) { acknowledged totalImpactedData message } }`,
+        { where: { Name: { eq: RULE_MARK } } },
+      ),
+    );
+
   async function copyLog() {
     try {
       await navigator.clipboard.writeText(JSON.stringify(log, null, 2));
@@ -241,6 +274,11 @@ export default function S0ProbePanel() {
           <Button size="sm" variant="outline" onClick={q4Switch} disabled={busy || !targetOrg}>Q4 switch to target org</Button>
           <Button size="sm" variant="outline" onClick={q5Reassign} disabled={busy || !docId || !targetOrg}>Q5 move probe doc to target org</Button>
           <Button size="sm" variant="outline" onClick={cleanup} disabled={busy}>Delete probe docs</Button>
+        </div>
+        <div className="flex flex-wrap gap-2 border-t pt-3">
+          <Button size="sm" onClick={ruleInsert} disabled={busy}>Rule: insert rows</Button>
+          <Button size="sm" variant="outline" onClick={ruleList} disabled={busy}>Rule: list rows</Button>
+          <Button size="sm" variant="outline" onClick={ruleCleanup} disabled={busy}>Rule: delete rows</Button>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
           <span className="text-muted-foreground">{log.length} log entries</span>

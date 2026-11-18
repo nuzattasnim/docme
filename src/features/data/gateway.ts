@@ -12,6 +12,7 @@
  *     If the refresh (or the retry) fails, the auth store moves to
  *     `unauthenticated`, the browser goes to /login, and `Unauthorized` is thrown.
  */
+import { BlocksApiError } from "@seliseblocks/client";
 import { getBlocksClient } from "@/lib/blocks/client";
 import { useAuthStore } from "@/features/auth/auth-store";
 import { SessionExpiredError, withSession } from "@/features/auth/session";
@@ -64,6 +65,32 @@ function unwrap<T>(body: unknown): T {
   return parsed.data;
 }
 
+/**
+ * The gateway answers some GraphQL errors (bad field, bad argument) with
+ * HTTP 400 and `{ errors: [...] }`. The SDK's BlocksApiError message drops
+ * an `errors` array, so recover the server's messages from the body.
+ */
+function graphqlErrorsFrom(err: unknown): GqlError[] | null {
+  if (!(err instanceof BlocksApiError)) return null;
+  const body = err.body as { errors?: unknown; message?: unknown } | string | null | undefined;
+  if (body && typeof body === "object" && Array.isArray(body.errors) && body.errors.length > 0) {
+    return body.errors.map((e) =>
+      e && typeof e === "object" && typeof (e as GqlError).message === "string"
+        ? (e as GqlError)
+        : { message: JSON.stringify(e) },
+    );
+  }
+  if (typeof body === "string" && body.trim()) {
+    return [{ message: `HTTP ${err.status}: ${body.trim().slice(0, 500)}` }];
+  }
+  return null;
+}
+
+/** First operation in a query, e.g. "getDocVersions", for error context. */
+function operationOf(query: string): string {
+  return /\b((?:get|insert|update|delete)\w+)\s*\(/.exec(query)?.[1] ?? "gateway";
+}
+
 function sessionLost(cause: unknown): DocmeDataError {
   useAuthStore.getState().reset();
   if (typeof window !== "undefined" && window.location.pathname !== "/login") {
@@ -86,6 +113,8 @@ export async function gql<T>(
     body = await withSession(() => getBlocksClient().data.graphql({ query, variables }));
   } catch (err) {
     if (err instanceof SessionExpiredError) throw sessionLost(err);
+    const errors = graphqlErrorsFrom(err);
+    if (errors) throw new GraphQLError(errors.map((e) => ({ ...e, message: `${operationOf(query)}: ${e.message}` })));
     throw err;
   }
   return unwrap<T>(body);

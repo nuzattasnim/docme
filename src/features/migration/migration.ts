@@ -71,17 +71,30 @@ export interface MigrationReport {
 const SNAPSHOT_PAGE_SIZE = 200;
 const PAGE_META_FIELDS = "ItemId Title DocId VersionId SortOrder SourcePageId CreatedDate";
 
+/** Prefix an error with what was being done, keeping the original as cause. */
+function inStep<T>(step: string, run: () => Promise<T>): Promise<T> {
+  return run().catch((err: unknown) => {
+    throw new Error(`${step}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+  });
+}
+
 export async function loadSnapshot(): Promise<Snapshot> {
   const [docs, versions, pages] = await Promise.all([
-    listAllRecords<Snapshot["docs"][number]>("Doc", "ItemId Name Status CreatedDate", {
-      pageSize: SNAPSHOT_PAGE_SIZE,
-    }),
-    listAllRecords<DocVersion>(
-      "DocVersion",
-      "ItemId DocId Version Pages IsPublished IsActive Status SourceVersionId SchemaVersion CreatedDate",
-      { pageSize: SNAPSHOT_PAGE_SIZE },
+    inStep("Reading docs", () =>
+      listAllRecords<Snapshot["docs"][number]>("Doc", "ItemId Name Status CreatedDate", {
+        pageSize: SNAPSHOT_PAGE_SIZE,
+      }),
     ),
-    listAllRecords<PageMeta>("Page", PAGE_META_FIELDS, { pageSize: SNAPSHOT_PAGE_SIZE }),
+    inStep("Reading versions", () =>
+      listAllRecords<DocVersion>(
+        "DocVersion",
+        "ItemId DocId Version Pages IsPublished IsActive Status SourceVersionId SchemaVersion CreatedDate",
+        { pageSize: SNAPSHOT_PAGE_SIZE },
+      ),
+    ),
+    inStep("Reading pages", () =>
+      listAllRecords<PageMeta>("Page", PAGE_META_FIELDS, { pageSize: SNAPSHOT_PAGE_SIZE }),
+    ),
   ]);
   return { docs, versions, pages };
 }
@@ -152,6 +165,10 @@ export async function runMigration(onProgress?: MigrationProgress): Promise<Migr
   for (let k = 0; k < pending.length; k++) {
     const v = pending[k];
     onProgress?.(k + 1, pending.length);
+    await inStep(`Migrating version "${v.Version || v.ItemId}" (${v.ItemId})`, () => migrateVersion(v));
+  }
+
+  async function migrateVersion(v: DocVersion) {
     const dangling: string[] = [];
     const refs = v.Pages ?? [];
 
@@ -219,7 +236,9 @@ export async function runMigration(onProgress?: MigrationProgress): Promise<Migr
   let docsStatusSet = 0;
   for (const doc of snap.docs) {
     if (!doc.Status) {
-      await updateRecords("Doc", { ItemId: { eq: doc.ItemId } }, { Status: "Active" });
+      await inStep(`Setting Status on doc ${doc.ItemId}`, () =>
+        updateRecords("Doc", { ItemId: { eq: doc.ItemId } }, { Status: "Active" }),
+      );
       mutations++;
       docsStatusSet++;
     }
