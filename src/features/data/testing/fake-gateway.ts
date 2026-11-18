@@ -5,7 +5,8 @@
  *   get<Q>(where: $where, order: $order, paging: $paging) { … items { F } }
  *   insert<S>(input: $input) / i<n>: insert<S>(input: $input<n>)
  *   update<S>(where: $where, input: $input)
- *   delete<S>(where: $where)            (soft delete: the record disappears)
+ *   delete<S>(where: $where)            (soft delete: removes ONE match per call, like the live gateway;
+ *                                        nothing matched → acknowledged: false)
  * Filters: { Field: { eq | neq | in } }, all conditions ANDed.
  */
 export type Rec = Record<string, unknown> & { ItemId: string };
@@ -98,7 +99,8 @@ export class FakeGateway {
         for (const r of matches) Object.assign(r, variables[inputVar!] as object);
         data[key] = { acknowledged: true, totalImpactedData: matches.length, message: null };
       } else {
-        const matches = this.filter(s, variables.where as Record<string, unknown>);
+        // Like the live gateway (seen 2026-11-18), a filter delete removes one match per call.
+        const matches = this.filter(s, variables.where as Record<string, unknown>).slice(0, 1);
         for (const r of matches) this.tables[s].delete(r.ItemId);
         // Matches the live gateway (seen 2026-11-18): an empty delete is not acknowledged.
         data[key] = matches.length

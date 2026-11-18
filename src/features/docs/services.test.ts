@@ -35,6 +35,14 @@ beforeEach(() => {
 });
 
 /** A v2 doc with one Ready version and `n` pages. */
+/** Mutation ops in order, with repeats of the same op collapsed (deletes loop one record per call). */
+function steps(): string[] {
+  return fake
+    .mutations()
+    .map((r) => r.ops[0])
+    .filter((op, i, all) => op !== all[i - 1]);
+}
+
 function seedDoc(n: number, content = (i: number) => `content ${i}`) {
   const doc = fake.seed("Doc", { Name: "Guide", Status: "Active" });
   const v = fake.seed("DocVersion", {
@@ -327,7 +335,7 @@ describe("deleteVersion (H7, C3)", () => {
     expect(fake.get("DocVersion", v.ItemId)).toBeUndefined();
     expect(pagesOf(v.ItemId)).toHaveLength(0);
     expect(pagesOf(v2)).toHaveLength(3);
-    expect(fake.mutations().map((r) => r.ops[0])).toEqual(["deletePage", "deleteDocVersion"]);
+    expect(steps()).toEqual(["deletePage", "deleteDocVersion"]);
   });
 });
 
@@ -335,7 +343,7 @@ describe("deleteDocCascade (H8, C4)", () => {
   it("sets Deleting, then deletes pages, versions, doc — in that order", async () => {
     const { doc } = seedDoc(2);
     await deleteDocCascade(doc.ItemId);
-    expect(fake.mutations().map((r) => r.ops[0])).toEqual([
+    expect(steps()).toEqual([
       "updateDoc",
       "deletePage",
       "deleteDocVersion",
@@ -358,6 +366,13 @@ describe("deleteDocCascade (H8, C4)", () => {
     await deleteDocCascade(doc.ItemId);
     expect(fake.all("Doc")).toHaveLength(0);
     expect(fake.all("DocVersion")).toHaveLength(0);
+  });
+
+  it("repeats a filter delete until every match is gone (gateway deletes one per call)", async () => {
+    const { doc } = seedDoc(5);
+    await deleteDocCascade(doc.ItemId);
+    expect(fake.all("Page")).toHaveLength(0);
+    expect(fake.mutations().filter((r) => r.ops[0] === "deletePage")).toHaveLength(6); // 5 + the empty check
   });
 
   it("a doc with no pages deletes cleanly (empty delete is not an error)", async () => {
@@ -387,7 +402,10 @@ describe("publishVersion (H9)", () => {
 
     await publishVersion({ docId: doc.ItemId, versionId: target.ItemId });
 
-    expect(fake.mutations().map((r) => r.ops[0])).toEqual(["updateDocVersion", "updateDoc", "updateDocVersion"]);
+    expect(steps()).toEqual(["updateDocVersion", "updateDoc", "updateDocVersion"]);
+    // Each other published version is unpublished by id (v and `other`).
+    const unpublished = fake.mutations().slice(2).map((r) => (r.variables.where as { ItemId: { eq: string } }).ItemId.eq);
+    expect(unpublished.sort()).toEqual([v.ItemId, other.ItemId].sort());
     const published = fake.all("DocVersion").filter((x) => x.DocId === doc.ItemId && x.IsPublished);
     expect(published.map((x) => x.ItemId)).toEqual([target.ItemId]);
     expect(fake.get("Doc", doc.ItemId)?.CurrentVersion).toBe(target.ItemId);

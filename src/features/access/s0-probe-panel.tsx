@@ -217,26 +217,6 @@ export default function S0ProbePanel() {
 
   const ruleList = () => step("Q3 list S0Probe rows (rule applied)", "getS0Probes", listProbeRows);
 
-  // Separates "rule not enforced" from "the creator reads through the record's
-  // own Read ACL": this row's Read ACL names nobody.
-  const ruleInsertNoAcl = () =>
-    step("Q3 insert S0Probe row with empty Read ACL", { Name: RULE_MARK, Visible: false }, async () => {
-      const ins = await gql(
-        `mutation($a: S0ProbeInsertInput!) { insertS0Probe(input: $a) { acknowledged itemId message } }`,
-        {
-          a: {
-            Name: RULE_MARK,
-            Visible: false,
-            Read: { Roles: [], UserIds: [], Permissions: [] },
-          },
-        },
-      );
-      const acl = await gql(
-        `query { getS0Probes(paging: {pageNo: 1, pageSize: 50}) { totalCount items { ItemId Visible Read { Roles UserIds Permissions } } } }`,
-      );
-      return { insert: ins, listAfterWithAcl: acl };
-    });
-
   // Deletes one call at a time and records how many each call removed, to
   // learn whether a filter delete removes every match or only one.
   const ruleCleanup = () =>
@@ -307,7 +287,6 @@ export default function S0ProbePanel() {
         </div>
         <div className="flex flex-wrap gap-2 border-t pt-3">
           <Button size="sm" onClick={ruleInsert} disabled={busy}>Rule: insert rows</Button>
-          <Button size="sm" variant="outline" onClick={ruleInsertNoAcl} disabled={busy}>Rule: insert row without ACL</Button>
           <Button size="sm" variant="outline" onClick={ruleList} disabled={busy}>Rule: list rows</Button>
           <Button size="sm" variant="outline" onClick={ruleCleanup} disabled={busy}>Rule: delete rows</Button>
         </div>

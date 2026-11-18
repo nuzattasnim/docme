@@ -1,7 +1,7 @@
 # Blocks data access — spike S0 findings (SPEC2 §6.0)
 
 Project `Dce5c9843b5a64f1394ddadc8be8e7a3a`. CLI `@seliseblocks/cli-os` 0.11.0, SDK `@seliseblocks/client` 0.3.0.
-Status: **in progress** (updated 2026-11-18). Q1, Q4 (partly), Q5 and Q7 are answered; Q2 is partly answered. For the SPEC2 gate, Q3(a) and Q3(b) **can be expressed** as `ruleGroup` conditions. Server enforcement is being checked. No Phase 2 configuration or rule work has started.
+Status: **in progress** (updated 2026-11-18). Q1, Q4 (partly), Q5 and Q7 are answered; Q2 is partly answered. **The SPEC2 gate passed:** Q3(a) and Q3(b) can be expressed as `ruleGroup` conditions, and the server enforces them (see Q3 runs 1–3). No Phase 2 configuration or rule work has started.
 
 ## Project state on 2026-11-17 (read-only CLI)
 
@@ -70,9 +70,31 @@ The editor shows the role `clouduser` as "System User". Saving a View rule also 
   - (ii) The creator reads through the record's own `Read.UserIds` ACL, which bypasses the rule.
 - Run 2 checks both: reload first, then a row whose `Read` ACL names nobody.
 
+**Run 2 (2026-11-18, after `blocks data reload`, same user, no roles): ENFORCED (deny).**
+- `getS0Probes` failed with "No policy grants access to this resource." That included a row this user had created, so the record's creator ACL does **not** get around the policy, and explanation (ii) is ruled out.
+- A denied read is a GraphQL **error**, not an empty list. Phase 2 code must map it to a "no access" state.
+- The record ACL cannot be set by the app: `Read` does not exist on `S0ProbeInsertInput`.
+- A positive check of the role condition waits until the docme roles exist.
+
+**Run 3 (2026-11-18): ENFORCED (allow + organization isolation).**
+- The policy was replaced, via `blocks data rules deploy` (which also reloads), with `OrganizationId = Auth.organizationId AND Visible = true`.
+- In testorg2 the user inserted a `Visible: true` row and a `Visible: false` row. A list returned only the visible row.
+- After switching to "test org", the list was empty (`totalCount: 0`, not an error).
+- After switching back, the visible row was listed again.
+- A policy that matches the caller but not a row **filters** that row. A policy whose caller-side condition (`roles`) fails **denies** the whole query (run 2).
+
+### SPEC2 gate (C12) — **PASSED** (2026-11-18)
+- Q3(a), "record `OrganizationId` = caller's active organization", can be expressed and the server enforces it (runs 2 and 3).
+- Q3(b), "caller has role X", can be expressed. A caller without the role is refused by the server (run 2).
+- The *grant* side of (b) is confirmed once docme roles exist and are granted. That check is the first Phase 2 configuration step.
+
+Notes for Phase 2:
+- Rules saved in the portal need `blocks data reload`. `blocks data rules deploy` reloads by itself.
+- Policy updates match by `policyName` per schema.
+
 Side findings from run 1:
 - **An empty delete is not acknowledged.** `delete<S>(where)` matching nothing returns `acknowledged: false`, `totalImpactedData: 0`, "No data found to DELETE or you don't have permission to DELETE this record." `deleteRecords` now treats this as "already done", so cascade deletes stay resumable.
-- **Filter delete may remove only one match.** `deleteS0Probe(where: {Name: {eq: …}})` with two matches reported `totalImpactedData: 1`. Not yet confirmed; run 2's cleanup records each call.
+- **Filter delete removes only one match per call** (confirmed in run 3: two matches took calls returning 1, then 1, then 0). `deleteRecords` now repeats until nothing matches. `publishVersion` now unpublishes the other versions one by one, by id. Earlier doc and version deletes on the dev site may have left pages or versions behind; the migration panel's scan lists them.
 - **`auth.switchOrganization` returns 401** once the 15-minute access token has expired, and the SDK does not refresh it. The org switcher must go through `withSession`, as data calls do.
 
 ### Q6 — Endpoint permissions — partial

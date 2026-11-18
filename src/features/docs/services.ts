@@ -166,27 +166,39 @@ export async function updateRecords(
   return checkAck(op, res[op]);
 }
 
+/** Upper bound on delete calls for one filter, so a misbehaving gateway can't loop forever. */
+export const MAX_DELETE_CALLS = 5000;
+
 /**
- * Soft-delete every record matching `where` (the gateway default).
+ * Soft-delete every record matching `where`. Returns how many were deleted.
  *
- * When nothing matches, the gateway answers `acknowledged: false`,
- * `totalImpactedData: 0`, "No data found to DELETE or you don't have
- * permission to DELETE this record." For a filter delete that means the work
- * is already done, which is what makes cascade deletes resumable, so it is
- * not an error. (The gateway gives the same answer when the caller lacks
- * DELETE access; the server still refuses the delete in that case.)
+ * Two gateway behaviours, seen on the live gateway 2026-11-18:
+ *  - A filter delete removes only ONE matching record per call, so this
+ *    repeats the call until nothing matches.
+ *  - When nothing matches, the gateway answers `acknowledged: false`,
+ *    `totalImpactedData: 0`, "No data found to DELETE or you don't have
+ *    permission to DELETE this record." That means "done", which is what
+ *    makes cascade deletes resumable, so it is not an error. (The gateway
+ *    gives the same answer when the caller lacks DELETE access; the server
+ *    still refuses the delete in that case.)
  */
-export async function deleteRecords(schema: SchemaName, where: Where): Promise<ActionResponse> {
+export async function deleteRecords(schema: SchemaName, where: Where): Promise<number> {
   const op = `delete${schema}`;
-  const res = await gql<Record<string, ActionResponse>>(
-    `mutation($where: ${schema}FilterInput) {
-      ${op}(where: $where) { acknowledged totalImpactedData message }
-    }`,
-    { where },
-  );
-  const r = res[op];
-  if (r && r.acknowledged === false && !r.totalImpactedData) return r;
-  return checkAck(op, r);
+  let deleted = 0;
+  for (let call = 0; call < MAX_DELETE_CALLS; call++) {
+    const res = await gql<Record<string, ActionResponse>>(
+      `mutation($where: ${schema}FilterInput) {
+        ${op}(where: $where) { acknowledged totalImpactedData message }
+      }`,
+      { where },
+    );
+    const r = res[op];
+    if (r && r.acknowledged === false && !r.totalImpactedData) return deleted;
+    const n = checkAck(op, r).totalImpactedData ?? 0;
+    if (n <= 0) return deleted;
+    deleted += n;
+  }
+  throw new GraphQLError([{ message: `${op}: still deleting after ${MAX_DELETE_CALLS} calls` }]);
 }
 
 const byId = (itemId: string): Where => ({ ItemId: { eq: itemId } });
@@ -518,19 +530,23 @@ export async function deleteVersion(input: { docId: string; versionId: string })
 /**
  * 1. V.IsPublished = true 2. Doc.CurrentVersion = V 3. unpublish every other
  * published version of the doc. Running it again restores "exactly one".
+ *
+ * Step 3 updates each version by id: the gateway's filter delete touches only
+ * one match per call, and a filter update matching nothing is not acknowledged.
  */
 export async function publishVersion(input: { docId: string; versionId: string }): Promise<void> {
   await updateRecords("DocVersion", byId(input.versionId), { IsPublished: true });
   await updateRecords("Doc", byId(input.docId), { CurrentVersion: input.versionId });
-  await updateRecords(
-    "DocVersion",
-    {
+  const others = await listAllRecords<Pick<DocVersion, "ItemId">>("DocVersion", "ItemId", {
+    where: {
       DocId: { eq: input.docId },
       ItemId: { neq: input.versionId },
       IsPublished: { eq: true },
     },
-    { IsPublished: false },
-  );
+  });
+  for (const v of others) {
+    await updateRecords("DocVersion", byId(v.ItemId), { IsPublished: false });
+  }
 }
 
 export async function unpublishVersion(versionId: string): Promise<void> {
