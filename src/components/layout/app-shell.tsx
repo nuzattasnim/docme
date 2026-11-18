@@ -4,13 +4,16 @@ import { AppTopbar } from "./app-topbar";
 import { RouteLoading } from "./route-loading";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useCurrentUser } from "@/features/auth/use-current-user";
+import { OrgGate } from "@/features/orgs/org-gate";
+import { PermissionErrorAlert } from "@/features/access/permission-error-alert";
 
 /**
  * AppShell — wrapper for every authenticated route. Renders the
  * persistent sidebar + topbar grid and mounts an auth gate:
  *   - `loading`     → skeleton
  *   - no user       → redirect to /login
- *   - authenticated → render <Outlet />
+ *   - authenticated → <OrgGate> (organization + docme role, SPEC2 C5/C6),
+ *                     then <Outlet />
  *
  * Layout: the outer container is `h-screen overflow-hidden`. The
  * topbar is fixed-height (`shrink-0`). The main area is `flex-1
@@ -51,8 +54,13 @@ export function AppShell() {
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <AppTopbar />
-          <main className="flex-1 overflow-hidden">
-            <Outlet />
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <PermissionErrorAlert />
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <OrgGate>
+                <Outlet />
+              </OrgGate>
+            </div>
           </main>
         </div>
       </div>

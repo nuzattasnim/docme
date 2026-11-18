@@ -10,10 +10,11 @@ import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { Separator } from "@/components/ui/separator";
 import { useSidebarPrefs } from "./sidebar-prefs";
+import { ActiveOrganizationName } from "@/features/orgs/org-switcher";
 
 /**
  * Topbar — fixed-height strip above the routed content. Layout:
- *   [collapse-sidebar] [breadcrumb trail]   [theme] [user]
+ *   [collapse-sidebar] [breadcrumb trail]   [organization] [theme] [user]
  *
  * The collapse trigger lives at the far left so it's always
  * reachable — even when the AppSidebar is collapsed and not visible.
@@ -48,6 +49,7 @@ export function AppTopbar() {
         <Breadcrumbs />
       </div>
       <div className="flex items-center gap-2">
+        <ActiveOrganizationName />
         <ThemeToggle />
         <Separator orientation="vertical" className="h-6" />
         <UserMenu />

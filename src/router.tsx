@@ -2,10 +2,12 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/app-shell";
 import { HomePage } from "@/pages/home-page";
 import { LoginPage } from "@/pages/login-page";
-import { CallbackPage } from "@/features/auth/callback-page";import { ProfilePage } from "@/pages/profile-page";
+import { CallbackPage } from "@/features/auth/callback-page";
+import { ProfilePage } from "@/pages/profile-page";
 import { SettingsPage } from "@/pages/settings-page";
 import { DocsListPage } from "@/features/docs/docs-list-page";
 import { DocDetailPage } from "@/features/docs/doc-detail-page";
+import { MembersPage } from "@/features/members/members-page";
 
 export const router = createBrowserRouter([
 	// Public routes — no app shell, no auth gate.
@@ -25,6 +27,8 @@ export const router = createBrowserRouter([
 			{ path: "/", element: <HomePage /> },
 			{ path: "/profile", element: <ProfilePage /> },
 			{ path: "/settings", element: <SettingsPage /> },
+			// Admin only; renders a 403 EmptyState for everyone else (SPEC2 C10).
+			{ path: "/settings/members", element: <MembersPage /> },
 			// Data-gateway CRUD surfaces.
 			{ path: "/docs", element: <DocsListPage /> },
 			{ path: "/docs/:docId", element: <DocDetailPage /> },

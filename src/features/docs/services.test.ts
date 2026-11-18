@@ -115,11 +115,17 @@ describe("createDoc (H1) and ensureFirstVersion (C1)", () => {
 });
 
 describe("addPage (H2, C5, C7)", () => {
-  it("inserts one page at max+1024 with DocId and VersionId, in 2 requests, never writing the version", async () => {
+  it("inserts one page at max+1024 with DocId, VersionId and ReaderVisible, in 3 requests, never writing the version", async () => {
     const { doc, v } = seedDoc(3);
     const id = await addPage({ docId: doc.ItemId, versionId: v.ItemId, title: "New", contentType: "md", content: "x" });
-    expect(fake.get("Page", id)).toMatchObject({ DocId: doc.ItemId, VersionId: v.ItemId, SortOrder: 4096 });
-    expect(fake.log).toHaveLength(2);
+    expect(fake.get("Page", id)).toMatchObject({
+      DocId: doc.ItemId,
+      VersionId: v.ItemId,
+      SortOrder: 4096,
+      ReaderVisible: false,
+    });
+    // Two reads (top SortOrder, the version's visibility) and the insert.
+    expect(fake.log).toHaveLength(3);
     expect(fake.log.flatMap((r) => r.ops)).not.toContain("updateDocVersion");
     const list = await listPageSummaries(v.ItemId);
     expect(list.at(-1)?.ItemId).toBe(id);
@@ -402,10 +408,15 @@ describe("publishVersion (H9)", () => {
 
     await publishVersion({ docId: doc.ItemId, versionId: target.ItemId });
 
-    expect(steps()).toEqual(["updateDocVersion", "updateDoc", "updateDocVersion"]);
-    // Each other published version is unpublished by id (v and `other`).
-    const unpublished = fake.mutations().slice(2).map((r) => (r.variables.where as { ItemId: { eq: string } }).ItemId.eq);
-    expect(unpublished.sort()).toEqual([v.ItemId, other.ItemId].sort());
+    // Target: flag first, then its pages; then CurrentVersion.
+    expect(steps().slice(0, 3)).toEqual(["updateDocVersion", "updatePage", "updateDoc"]);
+    // Each other published version is unpublished by id (v and `other`), pages hidden first.
+    const versionUpdates = fake
+      .mutations()
+      .filter((r) => r.ops[0] === "updateDocVersion")
+      .slice(1)
+      .map((r) => (r.variables.where as { ItemId: { eq: string } }).ItemId.eq);
+    expect(versionUpdates.sort()).toEqual([v.ItemId, other.ItemId].sort());
     const published = fake.all("DocVersion").filter((x) => x.DocId === doc.ItemId && x.IsPublished);
     expect(published.map((x) => x.ItemId)).toEqual([target.ItemId]);
     expect(fake.get("Doc", doc.ItemId)?.CurrentVersion).toBe(target.ItemId);

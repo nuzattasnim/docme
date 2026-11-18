@@ -58,6 +58,8 @@ export interface Page {
   Content?: string | null;
   SortOrder?: number | null;
   SourcePageId?: string | null;
+  /** Copy of the version's IsPublished || IsActive; the viewer READ rule uses it (SPEC2 §6.2). */
+  ReaderVisible?: boolean | null;
   CreatedDate?: string;
   LastUpdatedDate?: string;
 }

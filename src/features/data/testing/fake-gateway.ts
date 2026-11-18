@@ -97,7 +97,14 @@ export class FakeGateway {
       } else if (verb === "update") {
         const matches = this.filter(s, variables.where as Record<string, unknown>);
         for (const r of matches) Object.assign(r, variables[inputVar!] as object);
-        data[key] = { acknowledged: true, totalImpactedData: matches.length, message: null };
+        // Like the live gateway: an update matching nothing is not acknowledged.
+        data[key] = matches.length
+          ? { acknowledged: true, totalImpactedData: matches.length, message: null }
+          : {
+              acknowledged: false,
+              totalImpactedData: 0,
+              message: "No data found to UPDATE or you don't have permission to UPDATE this record.",
+            };
       } else {
         // Like the live gateway (seen 2026-11-18), a filter delete removes one match per call.
         const matches = this.filter(s, variables.where as Record<string, unknown>).slice(0, 1);

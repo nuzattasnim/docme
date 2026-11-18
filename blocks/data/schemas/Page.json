@@ -91,6 +91,19 @@
       "fields": [],
       "validationRule": null,
       "defaultValue": null
+    },
+    {
+      "name": "ReaderVisible",
+      "type": "Boolean",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Copy of the version visibility (IsPublished || IsActive); viewer READ rule uses it",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null,
+      "defaultValue": false
     }
   ],
   "schemaName": "Page",

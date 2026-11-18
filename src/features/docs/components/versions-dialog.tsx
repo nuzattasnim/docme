@@ -18,11 +18,19 @@ import type { Doc, DocVersion } from "../types";
 import { VersionCard } from "./version-card";
 import { AddVersionModal } from "./add-version-modal";
 import { QueryErrorAlert } from "./query-error-alert";
+import { useDocmeRole } from "@/features/access/use-docme-role";
 
 export interface VersionsDialogProps {
   open: boolean;
   onClose: () => void;
   doc: Doc;
+  /** The version the page shows now (readers don't use CurrentVersion). */
+  openedVersionId?: string;
+  /**
+   * Readers: "Open" shows that version locally instead of writing
+   * Doc.CurrentVersion, which they may not change.
+   */
+  onOpenVersion?: (versionId: string) => void;
 }
 
 /**
@@ -30,8 +38,12 @@ export interface VersionsDialogProps {
  * delete. Versions are fetched only while the dialog is open, so opening a
  * doc stays at three gateway requests (J1).
  */
-export function VersionsDialog({ open, onClose, doc }: VersionsDialogProps) {
+export function VersionsDialog({ open, onClose, doc, openedVersionId, onOpenVersion }: VersionsDialogProps) {
   const versionsQuery = useListVersions(doc.ItemId, open);
+  const { can } = useDocmeRole();
+  const canCreate = can("version.create");
+  const canPublish = can("version.publish");
+  const canDelete = can("version.delete");
   const [addOpen, setAddOpen] = useState(false);
 
   const setCurrent = useSetCurrentVersion();
@@ -64,11 +76,13 @@ export function VersionsDialog({ open, onClose, doc }: VersionsDialogProps) {
         maxWidthClass="max-w-2xl"
       >
         <div className="space-y-3">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => setAddOpen(true)}>
-              <Plus /> Add version
-            </Button>
-          </div>
+          {canCreate && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => setAddOpen(true)}>
+                <Plus /> Add version
+              </Button>
+            </div>
+          )}
           {versionsQuery.isPending ? (
             <div className="space-y-2">
               <Skeleton className="h-28 w-full" />
@@ -87,13 +101,17 @@ export function VersionsDialog({ open, onClose, doc }: VersionsDialogProps) {
                 <li key={v.ItemId}>
                   <VersionCard
                     version={v}
-                    isCurrent={doc.CurrentVersion === v.ItemId}
+                    isCurrent={(onOpenVersion ? openedVersionId : doc.CurrentVersion) === v.ItemId}
                     busy={busy}
+                    canPublish={canPublish}
+                    canDelete={canDelete}
                     onOpen={() =>
-                      run(
-                        () => setCurrent.mutateAsync({ docId: doc.ItemId, versionId: v.ItemId }),
-                        `Opened version ${label(v)}`,
-                      )
+                      onOpenVersion
+                        ? Promise.resolve(onOpenVersion(v.ItemId)).then(onClose)
+                        : run(
+                            () => setCurrent.mutateAsync({ docId: doc.ItemId, versionId: v.ItemId }),
+                            `Opened version ${label(v)}`,
+                          )
                     }
                     onTogglePublished={() =>
                       v.IsPublished

@@ -17,6 +17,10 @@ export interface VersionCardProps {
   onToggleActive: () => Promise<void>;
   onDelete: () => Promise<void>;
   busy?: boolean;
+  /** Role allows publish/active toggles (SPEC2 §6.1). */
+  canPublish?: boolean;
+  /** Role allows deleting versions (admin only). */
+  canDelete?: boolean;
 }
 
 /**
@@ -34,6 +38,8 @@ export function VersionCard({
   onToggleActive,
   onDelete,
   busy,
+  canPublish = true,
+  canDelete = true,
 }: VersionCardProps) {
   const editable = isVersionEditable(version);
   const isLegacy = version.SchemaVersion !== CURRENT_SCHEMA_VERSION;
@@ -57,8 +63,8 @@ export function VersionCard({
         <VersionStatusBadges
           isPublished={version.IsPublished}
           isActive={version.IsActive}
-          onTogglePublished={onTogglePublished}
-          onToggleActive={onToggleActive}
+          onTogglePublished={canPublish ? onTogglePublished : undefined}
+          onToggleActive={canPublish ? onToggleActive : undefined}
           disabled={busy || !editable}
         />
       </CardHeader>
@@ -70,7 +76,7 @@ export function VersionCard({
               <FolderOpen className="h-3.5 w-3.5" /> Open
             </Button>
           )}
-          {deleteBlockedReason ? (
+          {!canDelete ? null : deleteBlockedReason ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 {/* A disabled button gets no pointer events; the span carries the tooltip and focus. */}

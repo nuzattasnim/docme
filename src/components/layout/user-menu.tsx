@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useMe } from "@/features/users/hooks";
 import { logout } from "@/features/auth/logout";
+import { OrgSwitcherMenuGroup } from "@/features/orgs/org-switcher";
 
 /**
  * User menu — avatar + dropdown with profile / settings / sign out.
@@ -78,6 +79,7 @@ export function UserMenu() {
 					</div>
 				</DropdownMenuLabel>
 				<DropdownMenuSeparator />
+				<OrgSwitcherMenuGroup />
 				<DropdownMenuItem asChild>
 					<Link to="/profile" className="cursor-pointer">
 						<UserIcon className="mr-2 h-4 w-4" />

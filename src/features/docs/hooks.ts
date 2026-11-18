@@ -37,6 +37,7 @@ import {
 } from "./services";
 import type { DocUpdate, PageUpdate } from "./types";
 import { useRecentDocs } from "./recent-docs";
+import { isDocmeDataError } from "@/features/data/errors";
 
 export const KEYS = {
   docs: ["docs"] as const,
@@ -51,7 +52,9 @@ export const KEYS = {
   page: (pageId: string) => ["pages", "one", pageId] as const,
 };
 
-const QUERY_RETRY = 3;
+/** Up to 3 retries, but never for a rule refusal: it won't change (SPEC2 §5). */
+const QUERY_RETRY = (failureCount: number, error: unknown) =>
+  !isDocmeDataError(error, "Forbidden") && failureCount < 3;
 
 function useInvalidate() {
   const qc = useQueryClient();

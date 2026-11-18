@@ -39,6 +39,7 @@ import { QueryErrorAlert } from "./components/query-error-alert";
 import { AddDocModal } from "./components/add-doc-modal";
 import { AddVersionModal } from "./components/add-version-modal";
 import { docStatus, type Doc } from "./types";
+import { useDocmeRole } from "@/features/access/use-docme-role";
 
 /**
  * `/docs` — list of Docs. Each row has a dropdown menu (Open / Add
@@ -53,6 +54,8 @@ export function DocsListPage() {
   const create = useCreateDoc();
   const remove = useDeleteDoc();
   const navigate = useNavigate();
+  const { can } = useDocmeRole();
+  const canCreate = can("doc.create");
 
   const [error, setError] = useState<string | null>(null);
   const [addDocOpen, setAddDocOpen] = useState(false);
@@ -77,15 +80,17 @@ export function DocsListPage() {
             Documents, versions, and pages — backed by the Blocks data gateway.
           </p>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={() => setAddDocOpen(true)} size="sm">
-              <Plus />
-              Add doc
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Create a new doc</TooltipContent>
-        </Tooltip>
+        {canCreate && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={() => setAddDocOpen(true)} size="sm">
+                <Plus />
+                Add doc
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Create a new doc</TooltipContent>
+          </Tooltip>
+        )}
       </header>
 
       {error && (
@@ -110,11 +115,17 @@ export function DocsListPage() {
         <EmptyState
           icon={<FileText className="h-10 w-10" />}
           title="No docs yet"
-          description="Create your first documentation set above to get started."
+          description={
+            canCreate
+              ? "Create your first documentation set above to get started."
+              : "Nothing has been published in this organization yet."
+          }
           action={
-            <Button onClick={() => setAddDocOpen(true)}>
-              <Plus /> Add doc
-            </Button>
+            canCreate ? (
+              <Button onClick={() => setAddDocOpen(true)}>
+                <Plus /> Add doc
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -125,6 +136,8 @@ export function DocsListPage() {
               doc={doc}
               onDelete={onDelete}
               deleting={remove.isPending}
+              canDelete={can("doc.delete")}
+              canAddVersion={can("version.create")}
             />
           ))}
         </ul>
@@ -153,10 +166,14 @@ function DocRow({
   doc,
   onDelete,
   deleting,
+  canDelete,
+  canAddVersion,
 }: {
   doc: Doc;
   onDelete: (itemId: string, docName: string) => Promise<void>;
   deleting: boolean;
+  canDelete: boolean;
+  canAddVersion: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -173,15 +190,17 @@ function DocRow({
           </div>
           <p className="text-xs text-muted-foreground">Partly deleted. Retry to finish.</p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => onDelete(doc.ItemId, doc.Name)}
-          disabled={deleting}
-          aria-label={`Retry deleting ${doc.Name}`}
-        >
-          <RotateCw className="h-3.5 w-3.5" /> Retry
-        </Button>
+        {canDelete && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onDelete(doc.ItemId, doc.Name)}
+            disabled={deleting}
+            aria-label={`Retry deleting ${doc.Name}`}
+          >
+            <RotateCw className="h-3.5 w-3.5" /> Retry
+          </Button>
+        )}
       </li>
     );
   }
@@ -237,22 +256,28 @@ function DocRow({
               Open
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => setAddVersionOpen(true)}
-            disabled={deleting}
-          >
-            <Layers className="mr-2 h-3.5 w-3.5" />
-            Add version
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={() => setConfirmOpen(true)}
-            disabled={deleting}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="mr-2 h-3.5 w-3.5" />
-            Delete
-          </DropdownMenuItem>
+          {canAddVersion && (
+            <DropdownMenuItem
+              onSelect={() => setAddVersionOpen(true)}
+              disabled={deleting}
+            >
+              <Layers className="mr-2 h-3.5 w-3.5" />
+              Add version
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => setConfirmOpen(true)}
+                disabled={deleting}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

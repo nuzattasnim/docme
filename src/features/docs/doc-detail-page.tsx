@@ -5,7 +5,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Menu, Pencil, X, ArrowLeft, Layers, RotateCw } from "lucide-react";
 import { toast } from "sonner";
-import { errorMessage } from "@/features/data/errors";
+import { errorMessage, isDocmeDataError } from "@/features/data/errors";
+import { useDocmeRole } from "@/features/access/use-docme-role";
+import { viewerDefaultVersion } from "./services";
 import {
   useDeleteDoc,
   useDeletePage,
@@ -15,6 +17,7 @@ import {
   useGetPage,
   useListLegacyPageSummaries,
   useListPageSummaries,
+  useListVersions,
   useReorderPages,
   useUpdateDoc,
   useUpdatePage,
@@ -50,6 +53,11 @@ import { perfMark, perfMeasure } from "@/lib/perf";
  *   - Doc.Status "Deleting"           → Alert + Retry delete; nothing editable (C4)
  *   - no CurrentVersion               → "Create first version" (C1)
  *   - legacy / copying / copy failed  → read-only Alert, page controls hidden (C8, C2)
+ *
+ * Roles (SPEC2): viewers open the BR3 version (newest published, else newest
+ * active; `?version=` picks another visible one) and see no edit controls.
+ * A doc the server won't return — another organization's, or refused — is
+ * "Doc not found" (C1).
  */
 export const DocDetailPage = () => {
   const { docId = "" } = useParams<{ docId: string }>();
@@ -62,15 +70,29 @@ export const DocDetailPage = () => {
     perfMark("doc-open:start");
   }, [docId]);
 
+  const { can } = useDocmeRole();
+  const canWrite = can("page.write");
+  const isReader = !canWrite;
+
   const docQuery = useGetDoc(docId);
   const doc = docQuery.data ?? undefined;
   useRecordRecentDoc(doc?.ItemId, doc?.Name);
 
   const deleting = doc ? docStatus(doc) === "Deleting" : false;
-  const versionQuery = useGetDocVersion(deleting ? "" : (doc?.CurrentVersion ?? ""));
+  // Readers: the server returns only published/active versions (rules); BR3 picks one.
+  const readerVersionsQuery = useListVersions(docId, isReader && !!doc && !deleting);
+  const readerVersions = useMemo(() => readerVersionsQuery.data ?? [], [readerVersionsQuery.data]);
+  const versionParam = searchParams.get("version");
+  const readerVersionId = isReader
+    ? ((versionParam && readerVersions.some((v) => v.ItemId === versionParam) ? versionParam : null) ??
+      viewerDefaultVersion(readerVersions)?.ItemId ??
+      "")
+    : "";
+  const versionId = deleting ? "" : isReader ? readerVersionId : (doc?.CurrentVersion ?? "");
+  const versionQuery = useGetDocVersion(versionId);
   const version = versionQuery.data ?? undefined;
   const state = version ? versionState(version) : undefined;
-  const editable = state === "ready";
+  const editable = state === "ready" && canWrite;
   const isLegacy = version ? version.SchemaVersion !== CURRENT_SCHEMA_VERSION : false;
 
   const summariesQuery = useListPageSummaries(version?.ItemId ?? "", !!version && !isLegacy);
@@ -155,7 +177,7 @@ export const DocDetailPage = () => {
     );
   }
 
-  if (docQuery.error) {
+  if (docQuery.error && !isDocmeDataError(docQuery.error, "Forbidden")) {
     return (
       <PageMessage>
         <QueryErrorAlert
@@ -180,7 +202,7 @@ export const DocDetailPage = () => {
   if (deleting) {
     return (
       <PageMessage>
-        <DeletionIncompleteAlert docId={doc.ItemId} name={doc.Name} />
+        <DeletionIncompleteAlert docId={doc.ItemId} name={doc.Name} canRetry={can("doc.delete")} />
       </PageMessage>
     );
   }
@@ -208,6 +230,7 @@ export const DocDetailPage = () => {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <h1 className="truncate text-lg font-semibold">{doc.Name}</h1>
+            {can("doc.edit") && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -222,6 +245,7 @@ export const DocDetailPage = () => {
               </TooltipTrigger>
               <TooltipContent side="bottom">Edit doc details</TooltipContent>
             </Tooltip>
+            )}
           </div>
           {doc.Description && (
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{doc.Description}</p>
@@ -243,9 +267,27 @@ export const DocDetailPage = () => {
         )}
       </div>
 
-      {!doc.CurrentVersion ? (
+      {isReader && readerVersionsQuery.isPending ? (
+        <div className="p-3">
+          <Skeleton className="h-full min-h-40 w-full" />
+        </div>
+      ) : isReader && readerVersionsQuery.error ? (
         <PageMessage>
-          <NoVersionState docId={doc.ItemId} />
+          <QueryErrorAlert
+            message={`Failed to load versions: ${errorMessage(readerVersionsQuery.error)}`}
+            onRetry={() => readerVersionsQuery.refetch()}
+          />
+        </PageMessage>
+      ) : isReader && !readerVersionId ? (
+        <PageMessage>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>This doc has no published version yet.</AlertDescription>
+          </Alert>
+        </PageMessage>
+      ) : !isReader && !doc.CurrentVersion ? (
+        <PageMessage>
+          <NoVersionState docId={doc.ItemId} canCreate={can("version.create")} />
         </PageMessage>
       ) : versionQuery.isPending ? (
         <div className="p-3">
@@ -260,11 +302,11 @@ export const DocDetailPage = () => {
         </PageMessage>
       ) : !version ? (
         <PageMessage>
-          <NoVersionState docId={doc.ItemId} missing />
+          <NoVersionState docId={doc.ItemId} missing canCreate={can("version.create")} />
         </PageMessage>
       ) : (
         <>
-          {!editable && <VersionStateAlert version={version} className="mx-3 w-auto shrink-0" />}
+          {state !== "ready" && <VersionStateAlert version={version} className="mx-3 w-auto shrink-0" />}
           {pagesQuery.error && (
             <div className="mx-3 shrink-0">
               <QueryErrorAlert
@@ -314,12 +356,27 @@ export const DocDetailPage = () => {
       )}
 
       <EditDocModal
-        open={editDocOpen}
+        open={editDocOpen && can("doc.edit")}
         onClose={() => setEditDocOpen(false)}
         doc={doc}
         onSave={onSaveDoc}
       />
-      <VersionsDialog open={versionsOpen} onClose={() => setVersionsOpen(false)} doc={doc} />
+      <VersionsDialog
+        open={versionsOpen}
+        onClose={() => setVersionsOpen(false)}
+        doc={doc}
+        openedVersionId={version?.ItemId}
+        onOpenVersion={
+          isReader
+            ? (id) => {
+                const next = new URLSearchParams(searchParams);
+                next.set("version", id);
+                next.delete("page");
+                setSearchParams(next);
+              }
+            : undefined
+        }
+      />
     </div>
   );
 };
@@ -346,7 +403,7 @@ function EmptyPagesHint({ readOnly }: { readOnly: boolean }) {
 }
 
 /** C1 — a doc whose creation stopped before it got a version. */
-function NoVersionState({ docId, missing }: { docId: string; missing?: boolean }) {
+function NoVersionState({ docId, missing, canCreate }: { docId: string; missing?: boolean; canCreate: boolean }) {
   const ensure = useEnsureFirstVersion();
   async function onCreate() {
     try {
@@ -361,17 +418,23 @@ function NoVersionState({ docId, missing }: { docId: string; missing?: boolean }
       <AlertCircle className="h-4 w-4" />
       <AlertTitle>{missing ? "This doc's current version is missing" : "This doc has no version yet"}</AlertTitle>
       <AlertDescription className="space-y-3">
-        <p>Create its first version to start adding pages.</p>
-        <Button size="sm" onClick={onCreate} disabled={ensure.isPending}>
-          {ensure.isPending ? "Creating…" : "Create first version"}
-        </Button>
+        {canCreate ? (
+          <>
+            <p>Create its first version to start adding pages.</p>
+            <Button size="sm" onClick={onCreate} disabled={ensure.isPending}>
+              {ensure.isPending ? "Creating…" : "Create first version"}
+            </Button>
+          </>
+        ) : (
+          <p>An editor needs to create its first version.</p>
+        )}
       </AlertDescription>
     </Alert>
   );
 }
 
 /** C4 — the cascade delete stopped partway. Retry finishes it. */
-function DeletionIncompleteAlert({ docId, name }: { docId: string; name: string }) {
+function DeletionIncompleteAlert({ docId, name, canRetry }: { docId: string; name: string; canRetry: boolean }) {
   const remove = useDeleteDoc();
   async function onRetry() {
     try {
@@ -386,10 +449,15 @@ function DeletionIncompleteAlert({ docId, name }: { docId: string; name: string 
       <AlertCircle className="h-4 w-4" />
       <AlertTitle>Deletion incomplete</AlertTitle>
       <AlertDescription className="space-y-3">
-        <p>"{name}" is partly deleted and can't be edited. Retry to finish deleting it.</p>
-        <Button size="sm" variant="outline" onClick={onRetry} disabled={remove.isPending}>
-          <RotateCw className="h-3.5 w-3.5" /> {remove.isPending ? "Deleting…" : "Retry delete"}
-        </Button>
+        <p>
+          "{name}" is partly deleted and can't be edited.{" "}
+          {canRetry ? "Retry to finish deleting it." : "Ask an admin to finish deleting it."}
+        </p>
+        {canRetry && (
+          <Button size="sm" variant="outline" onClick={onRetry} disabled={remove.isPending}>
+            <RotateCw className="h-3.5 w-3.5" /> {remove.isPending ? "Deleting…" : "Retry delete"}
+          </Button>
+        )}
       </AlertDescription>
     </Alert>
   );

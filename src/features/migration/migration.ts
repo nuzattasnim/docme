@@ -16,6 +16,7 @@ import {
   deletePagesByIds,
   getPage,
   insertRecord,
+  isReaderVisible,
   listAllRecords,
   updateRecords,
 } from "@/features/docs/services";
@@ -170,6 +171,7 @@ export async function runMigration(onProgress?: MigrationProgress): Promise<Migr
 
   async function migrateVersion(v: DocVersion) {
     const dangling: string[] = [];
+    const readerVisible = isReaderVisible(v);
     const refs = v.Pages ?? [];
 
     for (let i = 0; i < refs.length; i++) {
@@ -185,7 +187,7 @@ export async function runMigration(onProgress?: MigrationProgress): Promise<Migr
         await updateRecords(
           "Page",
           { ItemId: { eq: pid } },
-          { DocId: v.DocId ?? null, VersionId: v.ItemId, SortOrder: sortOrder },
+          { DocId: v.DocId ?? null, VersionId: v.ItemId, SortOrder: sortOrder, ReaderVisible: readerVisible },
         );
         mutations++;
         page.VersionId = v.ItemId;
@@ -211,6 +213,7 @@ export async function runMigration(onProgress?: MigrationProgress): Promise<Migr
         ContentType: full.ContentType ?? "md",
         Content: full.Content ?? "",
         SortOrder: sortOrder,
+        ReaderVisible: readerVisible,
       });
       mutations++;
       copyKeys.add(key);

@@ -18,7 +18,9 @@ export type DocmeDataErrorCode =
   /** The gateway answered with GraphQL `errors[]`, empty data, or `acknowledged:false`. */
   | "GatewayError"
   /** The session could not be refreshed after a 401. */
-  | "Unauthorized";
+  | "Unauthorized"
+  /** A Blocks data access rule refused the request (SPEC2). Never retried. */
+  | "Forbidden";
 
 export class DocmeDataError extends Error {
   readonly code: DocmeDataErrorCode;

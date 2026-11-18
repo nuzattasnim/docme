@@ -1,3 +1,1116 @@
 {
-  "policies": []
+  "policies": [
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-read-admin",
+      "policyDescription": "SPEC2 §6.1 Doc READ: admin",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-read-editor",
+      "policyDescription": "SPEC2 §6.1 Doc READ: editor",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-write-admin",
+      "policyDescription": "SPEC2 §6.1 Doc WRITE: admin",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-write-editor",
+      "policyDescription": "SPEC2 §6.1 Doc WRITE: editor",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-edit-admin",
+      "policyDescription": "SPEC2 §6.1 Doc EDIT: admin",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-edit-editor",
+      "policyDescription": "SPEC2 §6.1 Doc EDIT: editor",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-delete-admin",
+      "policyDescription": "SPEC2 §6.1 Doc DELETE: admin",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-read-viewer",
+      "policyDescription": "SPEC2 §6.1 Doc READ: viewer",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-viewer",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-read-admin",
+      "policyDescription": "SPEC2 §6.1 DocVersion READ: admin",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-read-editor",
+      "policyDescription": "SPEC2 §6.1 DocVersion READ: editor",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-write-admin",
+      "policyDescription": "SPEC2 §6.1 DocVersion WRITE: admin",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-write-editor",
+      "policyDescription": "SPEC2 §6.1 DocVersion WRITE: editor",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-edit-admin",
+      "policyDescription": "SPEC2 §6.1 DocVersion EDIT: admin",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-edit-editor",
+      "policyDescription": "SPEC2 §6.1 DocVersion EDIT: editor",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-delete-admin",
+      "policyDescription": "SPEC2 §6.1 DocVersion DELETE: admin",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-read-viewer-published",
+      "policyDescription": "SPEC2 §6.1 DocVersion READ: viewer-published",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-viewer",
+            "description": null
+          },
+          {
+            "leftSource": 1,
+            "leftOperand": "IsPublished",
+            "operator": 0,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "true",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-read-viewer-active",
+      "policyDescription": "SPEC2 §6.1 DocVersion READ: viewer-active",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-viewer",
+            "description": null
+          },
+          {
+            "leftSource": 1,
+            "leftOperand": "IsActive",
+            "operator": 0,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "true",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-read-admin",
+      "policyDescription": "SPEC2 §6.1 Page READ: admin",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-read-editor",
+      "policyDescription": "SPEC2 §6.1 Page READ: editor",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-write-admin",
+      "policyDescription": "SPEC2 §6.1 Page WRITE: admin",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-write-editor",
+      "policyDescription": "SPEC2 §6.1 Page WRITE: editor",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-edit-admin",
+      "policyDescription": "SPEC2 §6.1 Page EDIT: admin",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-edit-editor",
+      "policyDescription": "SPEC2 §6.1 Page EDIT: editor",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-delete-admin",
+      "policyDescription": "SPEC2 §6.1 Page DELETE: admin",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-delete-editor",
+      "policyDescription": "SPEC2 §6.1 Page DELETE: editor",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-read-viewer-visible",
+      "policyDescription": "SPEC2 §6.1 Page READ: viewer-visible",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-viewer",
+            "description": null
+          },
+          {
+            "leftSource": 1,
+            "leftOperand": "ReaderVisible",
+            "operator": 0,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "true",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Doc",
+      "policyName": "docme-edit-organizationid-locked",
+      "policyDescription": "SPEC2: nobody may change OrganizationId after the legacy assignment",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "OrganizationId"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-org-mover-unassigned",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocVersion",
+      "policyName": "docme-edit-organizationid-locked",
+      "policyDescription": "SPEC2: nobody may change OrganizationId after the legacy assignment",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "OrganizationId"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-org-mover-unassigned",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Page",
+      "policyName": "docme-edit-organizationid-locked",
+      "policyDescription": "SPEC2: nobody may change OrganizationId after the legacy assignment",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "OrganizationId"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-org-mover-unassigned",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "S0Probe",
+      "policyName": "Allow",
+      "policyDescription": "SPEC2 S0 probe: same-org and Visible only (positive test)",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 1,
+            "leftOperand": "Visible",
+            "operator": 0,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "true",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    }
+  ],
+  "security": [
+    {
+      "schemaName": "Doc",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Doc",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Doc",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Doc",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "DocVersion",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "DocVersion",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "DocVersion",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "DocVersion",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Page",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Page",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Page",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Page",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    }
+  ]
 }

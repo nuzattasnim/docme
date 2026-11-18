@@ -11,12 +11,20 @@
  *   - HTTP 401                    → one session refresh, then exactly one retry.
  *     If the refresh (or the retry) fails, the auth store moves to
  *     `unauthenticated`, the browser goes to /login, and `Unauthorized` is thrown.
+ *   - a data access rule refusal ("No policy grants access to this resource")
+ *                                 → `DocmeDataError("Forbidden")`. A refused write is
+ *     also reported to `usePermissionErrors`, which shows a page Alert (SPEC2 C14).
  */
 import { BlocksApiError } from "@seliseblocks/client";
 import { getBlocksClient } from "@/lib/blocks/client";
 import { useAuthStore } from "@/features/auth/auth-store";
 import { SessionExpiredError, withSession } from "@/features/auth/session";
 import { DocmeDataError } from "./errors";
+import {
+  isPolicyRefusal,
+  permissionMessage,
+  usePermissionErrors,
+} from "@/features/access/permission-errors";
 
 export interface ActionResponse {
   acknowledged: boolean;
@@ -103,6 +111,15 @@ function sessionLost(cause: unknown): DocmeDataError {
   });
 }
 
+/** A rule refusal becomes `Forbidden`; other GraphQL errors pass through. */
+function refusalOf(query: string, errors: GqlError[]): DocmeDataError | null {
+  if (!errors.some((e) => isPolicyRefusal(e.message))) return null;
+  const op = operationOf(query);
+  const message = permissionMessage(op);
+  if (/^(insert|update|delete)/.test(op)) usePermissionErrors.getState().report(message);
+  return new DocmeDataError("Forbidden", message, { cause: new GraphQLError(errors) });
+}
+
 /** Run a GraphQL query or mutation against the runtime gateway. */
 export async function gql<T>(
   query: string,
@@ -114,8 +131,18 @@ export async function gql<T>(
   } catch (err) {
     if (err instanceof SessionExpiredError) throw sessionLost(err);
     const errors = graphqlErrorsFrom(err);
-    if (errors) throw new GraphQLError(errors.map((e) => ({ ...e, message: `${operationOf(query)}: ${e.message}` })));
+    if (errors) {
+      throw (
+        refusalOf(query, errors) ??
+        new GraphQLError(errors.map((e) => ({ ...e, message: `${operationOf(query)}: ${e.message}` })))
+      );
+    }
     throw err;
+  }
+  const parsed = (body ?? {}) as GqlBody<T>;
+  if (parsed.errors && parsed.errors.length > 0) {
+    const refusal = refusalOf(query, parsed.errors);
+    if (refusal) throw refusal;
   }
   return unwrap<T>(body);
 }

@@ -203,6 +203,106 @@ export async function deleteRecords(schema: SchemaName, where: Where): Promise<n
 
 const byId = (itemId: string): Where => ({ ItemId: { eq: itemId } });
 
+/**
+ * Update every record matching `where`, repeating until nothing matches.
+ * `where` must stop matching a record once it is updated (for example by
+ * including the new value as `neq`), so the loop ends. A call that matches
+ * nothing answers `acknowledged: false`, which means "done" here.
+ * Returns how many records changed.
+ */
+export async function updateAllMatching(
+  schema: SchemaName,
+  where: Where,
+  input: Record<string, unknown>,
+): Promise<number> {
+  const op = `update${schema}`;
+  let changed = 0;
+  for (let call = 0; call < MAX_DELETE_CALLS; call++) {
+    const res = await gql<Record<string, ActionResponse>>(
+      `mutation($where: ${schema}FilterInput, $input: ${schema}UpdateInput!) {
+        ${op}(where: $where, input: $input) { acknowledged totalImpactedData message }
+      }`,
+      { where, input },
+    );
+    const r = res[op];
+    if (r && r.acknowledged === false && !r.totalImpactedData) return changed;
+    const n = checkAck(op, r).totalImpactedData ?? 0;
+    if (n <= 0) return changed;
+    changed += n;
+  }
+  throw new GraphQLError([{ message: `${op}: still updating after ${MAX_DELETE_CALLS} calls` }]);
+}
+
+// ==========================================
+// Reader visibility (SPEC2 §6.2)
+// ==========================================
+
+/** A version viewers may read: published or active. */
+export function isReaderVisible(v: Pick<DocVersion, "IsPublished" | "IsActive">): boolean {
+  return v.IsPublished === true || v.IsActive === true;
+}
+
+/** Set `Page.ReaderVisible` on every page of the version. Returns pages changed. */
+export function setPagesReaderVisible(versionId: string, visible: boolean): Promise<number> {
+  return updateAllMatching(
+    "Page",
+    { VersionId: { eq: versionId }, ReaderVisible: { neq: visible } },
+    { ReaderVisible: visible },
+  );
+}
+
+/**
+ * Change a version's IsPublished/IsActive flags and keep its pages'
+ * ReaderVisible in step, in the order that never exposes a hidden
+ * version's pages: becoming visible → flags first, then pages; becoming
+ * hidden → pages first, then flags. Running it again finishes the job.
+ */
+export async function setVersionFlags(
+  version: Pick<DocVersion, "ItemId" | "IsPublished" | "IsActive">,
+  flags: Partial<Pick<DocVersion, "IsPublished" | "IsActive">>,
+): Promise<void> {
+  const before = isReaderVisible(version);
+  const after = isReaderVisible({ ...version, ...flags });
+  if (before && !after) await setPagesReaderVisible(version.ItemId, false);
+  await updateRecords("DocVersion", byId(version.ItemId), flags);
+  if (after) await setPagesReaderVisible(version.ItemId, true);
+}
+
+/**
+ * Viewers open the newest published version, else the newest active one,
+ * else none (SPEC2 BR3). `versions` in any order.
+ */
+export function viewerDefaultVersion<V extends Pick<DocVersion, "IsPublished" | "IsActive" | "CreatedDate">>(
+  versions: readonly V[],
+): V | null {
+  const newestFirst = [...versions].sort(
+    (a, b) => (b.CreatedDate ? Date.parse(b.CreatedDate) : 0) - (a.CreatedDate ? Date.parse(a.CreatedDate) : 0),
+  );
+  return newestFirst.find((v) => v.IsPublished === true) ?? newestFirst.find((v) => v.IsActive === true) ?? null;
+}
+
+export interface ReconcileReport {
+  versions: number;
+  pagesChanged: number;
+}
+
+/**
+ * "Reconcile reader visibility": recompute ReaderVisible for every version
+ * in `organizationId` (C11). A second run reports 0 changed.
+ */
+export async function reconcileReaderVisibility(organizationId: string): Promise<ReconcileReport> {
+  const versions = await listAllRecords<Pick<DocVersion, "ItemId" | "IsPublished" | "IsActive">>(
+    "DocVersion",
+    "ItemId IsPublished IsActive",
+    { where: { OrganizationId: { eq: organizationId } }, pageSize: 200 },
+  );
+  let pagesChanged = 0;
+  for (const v of versions) {
+    pagesChanged += await setPagesReaderVisible(v.ItemId, isReaderVisible(v));
+  }
+  return { versions: versions.length, pagesChanged };
+}
+
 /** Run `task` over `items`, at most `limit` at a time. Never rejects. */
 async function runLimited<T>(
   items: readonly T[],
@@ -441,6 +541,8 @@ async function copyPagesAndFinish(args: {
       ContentType: p.ContentType ?? "md",
       Content: p.Content ?? "",
       SortOrder: p.SortOrder ?? null,
+      // The target is a new, unpublished version.
+      ReaderVisible: false,
     }));
     for (const chunk of chunkBySize(inputs)) {
       await insertRecordsBatch("Page", chunk);
@@ -535,26 +637,37 @@ export async function deleteVersion(input: { docId: string; versionId: string })
  * one match per call, and a filter update matching nothing is not acknowledged.
  */
 export async function publishVersion(input: { docId: string; versionId: string }): Promise<void> {
-  await updateRecords("DocVersion", byId(input.versionId), { IsPublished: true });
+  // Becoming visible: flag first, then pages (§6.2). Its IsActive doesn't matter here.
+  await setVersionFlags({ ItemId: input.versionId, IsPublished: false, IsActive: false }, { IsPublished: true });
   await updateRecords("Doc", byId(input.docId), { CurrentVersion: input.versionId });
-  const others = await listAllRecords<Pick<DocVersion, "ItemId">>("DocVersion", "ItemId", {
-    where: {
-      DocId: { eq: input.docId },
-      ItemId: { neq: input.versionId },
-      IsPublished: { eq: true },
+  const others = await listAllRecords<Pick<DocVersion, "ItemId" | "IsPublished" | "IsActive">>(
+    "DocVersion",
+    "ItemId IsPublished IsActive",
+    {
+      where: {
+        DocId: { eq: input.docId },
+        ItemId: { neq: input.versionId },
+        IsPublished: { eq: true },
+      },
     },
-  });
+  );
   for (const v of others) {
-    await updateRecords("DocVersion", byId(v.ItemId), { IsPublished: false });
+    await setVersionFlags(v, { IsPublished: false });
   }
 }
 
+async function requireVersion(versionId: string): Promise<DocVersion> {
+  const v = await getDocVersion(versionId);
+  if (!v) throw new DocmeDataError("GatewayError", `Version ${versionId} was not found`);
+  return v;
+}
+
 export async function unpublishVersion(versionId: string): Promise<void> {
-  await updateRecords("DocVersion", byId(versionId), { IsPublished: false });
+  await setVersionFlags(await requireVersion(versionId), { IsPublished: false });
 }
 
 export async function setVersionActive(versionId: string, isActive: boolean): Promise<void> {
-  await updateRecords("DocVersion", byId(versionId), { IsActive: isActive });
+  await setVersionFlags(await requireVersion(versionId), { IsActive: isActive });
 }
 
 export async function setCurrentVersion(docId: string, versionId: string): Promise<void> {
@@ -612,12 +725,16 @@ export async function addPage(input: {
   content: string;
 }): Promise<string> {
   assertValid(validatePageInput({ title: input.title, content: input.content }));
-  const top = await listRecords<Pick<Page, "ItemId" | "SortOrder">>("Page", "ItemId SortOrder", {
-    where: { VersionId: { eq: input.versionId } },
-    order: [{ field: "SortOrder", direction: "DESC" }],
-    paging: { pageNo: 1, pageSize: 1 },
-  });
+  const [top, version] = await Promise.all([
+    listRecords<Pick<Page, "ItemId" | "SortOrder">>("Page", "ItemId SortOrder", {
+      where: { VersionId: { eq: input.versionId } },
+      order: [{ field: "SortOrder", direction: "DESC" }],
+      paging: { pageNo: 1, pageSize: 1 },
+    }),
+    getDocVersion(input.versionId),
+  ]);
   return insertRecord("Page", {
+    ReaderVisible: version ? isReaderVisible(version) : false,
     DocId: input.docId,
     VersionId: input.versionId,
     Title: input.title.trim(),
