@@ -62,6 +62,19 @@ The editor shows the role `clouduser` as "System User". Saving a View rule also 
 
 **Still to show:** that the gateway *enforces* the rule. The probe panel's "Rule: insert / list rows" buttons do this. Each enforcement run is recorded below.
 
+**Run 1 (2026-11-18, test user `7ec05f5f…`, no roles, active org testorg2): NOT filtered.**
+- The user inserted two rows, `Visible: true` and `Visible: false`, and could read both. The rule requires `roles contains clouduser` and `Visible = true`, so it should have returned none.
+- `readAccessLevel` was already 3 (Custom), but `blocks data schema list` showed `totalReadPolicies: 0` for S0Probe. The rule was saved but not attached to the live schema.
+- Two explanations are open:
+  - (i) The gateway was not reloaded after the portal save. `blocks data reload` says it "makes staged schema/rule changes live".
+  - (ii) The creator reads through the record's own `Read.UserIds` ACL, which bypasses the rule.
+- Run 2 checks both: reload first, then a row whose `Read` ACL names nobody.
+
+Side findings from run 1:
+- **An empty delete is not acknowledged.** `delete<S>(where)` matching nothing returns `acknowledged: false`, `totalImpactedData: 0`, "No data found to DELETE or you don't have permission to DELETE this record." `deleteRecords` now treats this as "already done", so cascade deletes stay resumable.
+- **Filter delete may remove only one match.** `deleteS0Probe(where: {Name: {eq: …}})` with two matches reported `totalImpactedData: 1`. Not yet confirmed; run 2's cleanup records each call.
+- **`auth.switchOrganization` returns 401** once the 15-minute access token has expired, and the SDK does not refresh it. The org switcher must go through `withSession`, as data calls do.
+
 ### Q6 — Endpoint permissions — partial
 `blocks iam permissions list --type 1 --search <term> --json`:
 - organizations: `blocks-iam::iam::organizations` (View), `…::create-organizations`, `…::mutate-organizations`

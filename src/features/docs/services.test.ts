@@ -360,6 +360,13 @@ describe("deleteDocCascade (H8, C4)", () => {
     expect(fake.all("DocVersion")).toHaveLength(0);
   });
 
+  it("a doc with no pages deletes cleanly (empty delete is not an error)", async () => {
+    const { doc } = seedDoc(0);
+    await deleteDocCascade(doc.ItemId);
+    expect(fake.all("Doc")).toHaveLength(0);
+    expect(fake.all("DocVersion")).toHaveLength(0);
+  });
+
   it("also removes pages referenced only by an unmigrated version", async () => {
     const doc = fake.seed("Doc", { Name: "Old" });
     const legacyPage = fake.seed("Page", { Title: "L" });

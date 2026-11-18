@@ -100,7 +100,14 @@ export class FakeGateway {
       } else {
         const matches = this.filter(s, variables.where as Record<string, unknown>);
         for (const r of matches) this.tables[s].delete(r.ItemId);
-        data[key] = { acknowledged: true, totalImpactedData: matches.length, message: null };
+        // Matches the live gateway (seen 2026-11-18): an empty delete is not acknowledged.
+        data[key] = matches.length
+          ? { acknowledged: true, totalImpactedData: matches.length, message: null }
+          : {
+              acknowledged: false,
+              totalImpactedData: 0,
+              message: "No data found to DELETE or you don't have permission to DELETE this record.",
+            };
       }
     }
     return { data };

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { getBlocksClient } from "@/lib/blocks/client";
 import { gql } from "@/features/data/gateway";
 import { errorMessage } from "@/features/data/errors";
+import { withSession } from "@/features/auth/session";
 
 /**
  * SPEC2 spike S0 probe — TEMPORARY. Compiled in only when the build sets
@@ -164,9 +165,10 @@ export default function S0ProbePanel() {
   const q4Switch = () =>
     step("Q4 switch organization", { organizationId: targetOrg }, async () => {
       const client = getBlocksClient();
-      const before = (await client.iam.me()) as { data?: Record<string, unknown> };
-      const sw = await client.auth.switchOrganization({ organizationId: targetOrg });
-      const after = (await client.iam.me()) as { data?: Record<string, unknown> };
+      // The access token lasts 15 minutes; refresh once on 401 like data calls do.
+      const before = (await withSession(() => client.iam.me())) as { data?: Record<string, unknown> };
+      const sw = await withSession(() => client.auth.switchOrganization({ organizationId: targetOrg }));
+      const after = (await withSession(() => client.iam.me())) as { data?: Record<string, unknown> };
       const pick = (d?: Record<string, unknown>) => ({
         roles: d?.roles,
         permissions: d?.permissions,
@@ -215,13 +217,41 @@ export default function S0ProbePanel() {
 
   const ruleList = () => step("Q3 list S0Probe rows (rule applied)", "getS0Probes", listProbeRows);
 
+  // Separates "rule not enforced" from "the creator reads through the record's
+  // own Read ACL": this row's Read ACL names nobody.
+  const ruleInsertNoAcl = () =>
+    step("Q3 insert S0Probe row with empty Read ACL", { Name: RULE_MARK, Visible: false }, async () => {
+      const ins = await gql(
+        `mutation($a: S0ProbeInsertInput!) { insertS0Probe(input: $a) { acknowledged itemId message } }`,
+        {
+          a: {
+            Name: RULE_MARK,
+            Visible: false,
+            Read: { Roles: [], UserIds: [], Permissions: [] },
+          },
+        },
+      );
+      const acl = await gql(
+        `query { getS0Probes(paging: {pageNo: 1, pageSize: 50}) { totalCount items { ItemId Visible Read { Roles UserIds Permissions } } } }`,
+      );
+      return { insert: ins, listAfterWithAcl: acl };
+    });
+
+  // Deletes one call at a time and records how many each call removed, to
+  // learn whether a filter delete removes every match or only one.
   const ruleCleanup = () =>
-    step("cleanup S0Probe rows", { Name: RULE_MARK }, () =>
-      gql(
-        `mutation($where: S0ProbeFilterInput) { deleteS0Probe(where: $where) { acknowledged totalImpactedData message } }`,
-        { where: { Name: { eq: RULE_MARK } } },
-      ),
-    );
+    step("cleanup S0Probe rows", { Name: RULE_MARK }, async () => {
+      const calls: unknown[] = [];
+      for (let i = 0; i < 5; i++) {
+        const res = await gql<{ deleteS0Probe: { totalImpactedData: number } }>(
+          `mutation($where: S0ProbeFilterInput) { deleteS0Probe(where: $where) { acknowledged totalImpactedData message } }`,
+          { where: { Name: { eq: RULE_MARK } } },
+        );
+        calls.push(res.deleteS0Probe);
+        if (!res.deleteS0Probe.totalImpactedData) break;
+      }
+      return { deleteCalls: calls, listAfter: await listProbeRows() };
+    });
 
   async function copyLog() {
     try {
@@ -277,6 +307,7 @@ export default function S0ProbePanel() {
         </div>
         <div className="flex flex-wrap gap-2 border-t pt-3">
           <Button size="sm" onClick={ruleInsert} disabled={busy}>Rule: insert rows</Button>
+          <Button size="sm" variant="outline" onClick={ruleInsertNoAcl} disabled={busy}>Rule: insert row without ACL</Button>
           <Button size="sm" variant="outline" onClick={ruleList} disabled={busy}>Rule: list rows</Button>
           <Button size="sm" variant="outline" onClick={ruleCleanup} disabled={busy}>Rule: delete rows</Button>
         </div>

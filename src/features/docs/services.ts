@@ -166,7 +166,16 @@ export async function updateRecords(
   return checkAck(op, res[op]);
 }
 
-/** Soft-delete every record matching `where` (the gateway default). */
+/**
+ * Soft-delete every record matching `where` (the gateway default).
+ *
+ * When nothing matches, the gateway answers `acknowledged: false`,
+ * `totalImpactedData: 0`, "No data found to DELETE or you don't have
+ * permission to DELETE this record." For a filter delete that means the work
+ * is already done, which is what makes cascade deletes resumable, so it is
+ * not an error. (The gateway gives the same answer when the caller lacks
+ * DELETE access; the server still refuses the delete in that case.)
+ */
 export async function deleteRecords(schema: SchemaName, where: Where): Promise<ActionResponse> {
   const op = `delete${schema}`;
   const res = await gql<Record<string, ActionResponse>>(
@@ -175,7 +184,9 @@ export async function deleteRecords(schema: SchemaName, where: Where): Promise<A
     }`,
     { where },
   );
-  return checkAck(op, res[op]);
+  const r = res[op];
+  if (r && r.acknowledged === false && !r.totalImpactedData) return r;
+  return checkAck(op, r);
 }
 
 const byId = (itemId: string): Where => ({ ItemId: { eq: itemId } });
