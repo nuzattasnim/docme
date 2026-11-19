@@ -1,0 +1,12 @@
+{
+  "schemaId": "f5163dd9-3381-46ea-a385-33aa1d699967",
+  "fieldName": "RepoName",
+  "validations": [
+    {
+      "type": 1,
+      "value": "^[A-Za-z0-9._-]{1,100}$",
+      "errorMessage": "Repository name is not valid",
+      "isActive": true
+    }
+  ]
+}

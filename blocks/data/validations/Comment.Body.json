@@ -1,0 +1,17 @@
+{
+  "schemaId": "6f6a8668-b2c0-406f-8c55-7a2a674272b7",
+  "fieldName": "Body",
+  "validations": [
+    {
+      "type": 0,
+      "errorMessage": "Comment cannot be empty",
+      "isActive": true
+    },
+    {
+      "type": 3,
+      "value": 5000,
+      "errorMessage": "Comments are limited to 5,000 characters",
+      "isActive": true
+    }
+  ]
+}

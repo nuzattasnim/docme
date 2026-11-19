@@ -6,6 +6,12 @@ import { ThemeProvider } from "@/components/layout/theme-provider";
 import { App } from "./App";
 import "./index.css";
 
+// SPEC3 §10: dev-only console helper. Vite inlines the flag, so every other
+// build drops this import and the helper's chunk.
+if (import.meta.env.VITE_ENABLE_DEV_TOOLS === "true") {
+	void import("@/features/comments/dev-tools");
+}
+
 const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: { retry: 1, refetchOnWindowFocus: false },

@@ -1,4 +1,5 @@
 import type { ContentRendererProps } from "./types";
+import { wholeContentRange } from "./source-positions";
 
 /**
  * Fallback renderer — used when no specific renderer is registered for a
@@ -15,7 +16,11 @@ export function RawRenderer({ content }: ContentRendererProps) {
     );
   }
   return (
-    <pre className="max-h-[70vh] max-w-prose overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-sm">
+    // The whole content is one block for comment anchoring (SPEC3 §6.3).
+    <pre
+      className="max-h-[70vh] max-w-prose overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-sm"
+      {...wholeContentRange(content)}
+    >
       {content}
     </pre>
   );

@@ -1,0 +1,12 @@
+{
+  "schemaId": "f5163dd9-3381-46ea-a385-33aa1d699967",
+  "fieldName": "RepoOwner",
+  "validations": [
+    {
+      "type": 1,
+      "value": "^[A-Za-z0-9-]{1,39}$",
+      "errorMessage": "Repository owner is not valid",
+      "isActive": true
+    }
+  ]
+}

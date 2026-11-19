@@ -341,16 +341,19 @@ describe("deleteVersion (H7, C3)", () => {
     expect(fake.get("DocVersion", v.ItemId)).toBeUndefined();
     expect(pagesOf(v.ItemId)).toHaveLength(0);
     expect(pagesOf(v2)).toHaveLength(3);
-    expect(steps()).toEqual(["deletePage", "deleteDocVersion"]);
+    // SPEC3: the version's comments go first.
+    expect(steps()).toEqual(["deleteComment", "deletePage", "deleteDocVersion"]);
   });
 });
 
 describe("deleteDocCascade (H8, C4)", () => {
-  it("sets Deleting, then deletes pages, versions, doc — in that order", async () => {
+  it("sets Deleting, then deletes comments, source, pages, versions, doc — in that order", async () => {
     const { doc } = seedDoc(2);
     await deleteDocCascade(doc.ItemId);
     expect(steps()).toEqual([
       "updateDoc",
+      "deleteComment",
+      "deleteDocSource",
       "deletePage",
       "deleteDocVersion",
       "deleteDoc",
@@ -408,8 +411,8 @@ describe("publishVersion (H9)", () => {
 
     await publishVersion({ docId: doc.ItemId, versionId: target.ItemId });
 
-    // Target: flag first, then its pages; then CurrentVersion.
-    expect(steps().slice(0, 3)).toEqual(["updateDocVersion", "updatePage", "updateDoc"]);
+    // Target: flag first, then its pages and comments (SPEC3 C12); then CurrentVersion.
+    expect(steps().slice(0, 4)).toEqual(["updateDocVersion", "updatePage", "updateComment", "updateDoc"]);
     // Each other published version is unpublished by id (v and `other`), pages hidden first.
     const versionUpdates = fake
       .mutations()

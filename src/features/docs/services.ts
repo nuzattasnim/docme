@@ -31,13 +31,15 @@ import {
 // Generic gateway helpers
 // ==========================================
 
-export type SchemaName = "Doc" | "DocVersion" | "Page";
+export type SchemaName = "Doc" | "DocVersion" | "Page" | "DocSource" | "Comment";
 
-/** `get${querySchema}` — read from `blocks data schema list`, not pluralized by hand. */
+/** `get${querySchema}` — read from `blocks data schema get`, not pluralized by hand. */
 const QUERY_FIELD: Record<SchemaName, string> = {
   Doc: "getDocs",
   DocVersion: "getDocVersions",
   Page: "getPages",
+  DocSource: "getDocSources",
+  Comment: "getComments",
 };
 
 export const FIELDS = {
@@ -46,7 +48,7 @@ export const FIELDS = {
     "ItemId DocId Version Pages IsPublished IsActive Status SourceVersionId SchemaVersion CreatedDate LastUpdatedDate",
   pageSummary: "ItemId Title SortOrder CreatedDate",
   pageFull:
-    "ItemId DocId VersionId Title ContentType Content SortOrder SourcePageId CreatedDate LastUpdatedDate",
+    "ItemId DocId VersionId Title ContentType Content SortOrder SourcePageId ReaderVisible CreatedDate LastUpdatedDate",
 } as const;
 
 export type Where = Record<string, unknown>;
@@ -242,13 +244,16 @@ export function isReaderVisible(v: Pick<DocVersion, "IsPublished" | "IsActive">)
   return v.IsPublished === true || v.IsActive === true;
 }
 
-/** Set `Page.ReaderVisible` on every page of the version. Returns pages changed. */
-export function setPagesReaderVisible(versionId: string, visible: boolean): Promise<number> {
-  return updateAllMatching(
-    "Page",
-    { VersionId: { eq: versionId }, ReaderVisible: { neq: visible } },
-    { ReaderVisible: visible },
-  );
+/**
+ * Set `ReaderVisible` on every page of the version, then on every comment
+ * of the version (SPEC3 §6.2). Pages and comments move together, so the
+ * ordering in `setVersionFlags` covers both. Returns records changed.
+ */
+export async function setPagesReaderVisible(versionId: string, visible: boolean): Promise<number> {
+  const where = { VersionId: { eq: versionId }, ReaderVisible: { neq: visible } };
+  const pages = await updateAllMatching("Page", where, { ReaderVisible: visible });
+  const comments = await updateAllMatching("Comment", where, { ReaderVisible: visible });
+  return pages + comments;
 }
 
 /**
@@ -283,12 +288,14 @@ export function viewerDefaultVersion<V extends Pick<DocVersion, "IsPublished" | 
 
 export interface ReconcileReport {
   versions: number;
+  /** Pages and comments whose ReaderVisible changed (SPEC3 C12). */
   pagesChanged: number;
 }
 
 /**
  * "Reconcile reader visibility": recompute ReaderVisible for every version
- * in `organizationId` (C11). A second run reports 0 changed.
+ * in `organizationId` (C11), for pages and comments alike (SPEC3 C12).
+ * A second run reports 0 changed.
  */
 export async function reconcileReaderVisibility(organizationId: string): Promise<ReconcileReport> {
   const versions = await listAllRecords<Pick<DocVersion, "ItemId" | "IsPublished" | "IsActive">>(
@@ -404,12 +411,15 @@ export async function ensureFirstVersion(docId: string): Promise<string> {
 }
 
 /**
- * 1. Status "Deleting" 2. pages by DocId (+ legacy pages listed only in v1
- * order arrays) 3. versions by DocId 4. the Doc. Every step is a filter
- * delete, so running it again after a failure resumes where it stopped.
+ * 1. Status "Deleting" 2. comments and the DocSource by DocId (SPEC3) 3. pages
+ * by DocId (+ legacy pages listed only in v1 order arrays) 4. versions by DocId
+ * 5. the Doc. Every step is a filter delete, so running it again after a
+ * failure resumes where it stopped. Children always go before parents.
  */
 export async function deleteDocCascade(docId: string): Promise<void> {
   await updateRecords("Doc", byId(docId), { Status: "Deleting" });
+  await deleteRecords("Comment", { DocId: { eq: docId } });
+  await deleteRecords("DocSource", { DocId: { eq: docId } });
   await deleteRecords("Page", { DocId: { eq: docId } });
   const versions = await listVersions(docId);
   const legacyPageIds = [
@@ -607,7 +617,7 @@ export async function resumeDuplicate(versionId: string, onProgress?: CopyProgre
   });
 }
 
-/** Deletes the version's pages, then the version. Never the current version. */
+/** Deletes the version's comments, its pages, then the version. Never the current version. */
 export async function deleteVersion(input: { docId: string; versionId: string }): Promise<void> {
   const doc = await getDoc(input.docId);
   if (doc?.CurrentVersion === input.versionId) {
@@ -625,6 +635,7 @@ export async function deleteVersion(input: { docId: string; versionId: string })
       "This version uses the old data format — run the migration",
     );
   }
+  await deleteRecords("Comment", { VersionId: { eq: input.versionId } });
   await deleteRecords("Page", { VersionId: { eq: input.versionId } });
   await deleteRecords("DocVersion", byId(input.versionId));
 }
@@ -751,13 +762,35 @@ export async function updatePage(pageId: string, updates: PageUpdate): Promise<v
   await updateRecords("Page", byId(pageId), input);
 }
 
+/**
+ * Comments go first (SPEC3 H12). Comment DELETE is author-or-admin only, so
+ * an editor can't remove other people's comments; the gateway answers such a
+ * refused filter delete like an empty one. So the page is deleted only once
+ * no comment on it is left, never leaving orphaned comments behind.
+ */
 export async function deletePage(pageId: string): Promise<void> {
+  await deleteCommentsOrRefuse({ PageId: { eq: pageId } });
   await deleteRecords("Page", byId(pageId));
 }
 
 export async function deletePagesByIds(pageIds: readonly string[]): Promise<void> {
   if (pageIds.length === 0) return;
+  await deleteCommentsOrRefuse({ PageId: { in: [...pageIds] } });
   await deleteRecords("Page", { ItemId: { in: [...pageIds] } });
+}
+
+export const COMMENTS_BLOCK_DELETE =
+  "This page has comments from other people, and only an admin can delete those. Ask an admin to delete the page.";
+
+async function deleteCommentsOrRefuse(where: Where): Promise<void> {
+  await deleteRecords("Comment", where);
+  const left = await listRecords<{ ItemId: string }>("Comment", "ItemId", {
+    where,
+    paging: { pageNo: 1, pageSize: 1 },
+  });
+  if (left.totalCount > 0 || left.items.length > 0) {
+    throw new DocmeDataError("Forbidden", COMMENTS_BLOCK_DELETE);
+  }
 }
 
 export class ReorderIncompleteError extends DocmeDataError {

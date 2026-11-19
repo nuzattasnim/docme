@@ -26,6 +26,7 @@ import { PageListSidebar } from "./components/page-list-sidebar";
 import { PageContentView } from "./components/page-content-view";
 import { AddPageModal } from "./components/add-page-modal";
 import { EditDocModal } from "./components/edit-doc-modal";
+import { RepoSourceHeaderLine } from "@/features/sources/components/repo-source-section";
 import { VersionsDialog } from "./components/versions-dialog";
 import { VersionStateAlert, VersionStateBadge } from "./components/version-state";
 import { QueryErrorAlert } from "./components/query-error-alert";
@@ -250,6 +251,7 @@ export const DocDetailPage = () => {
           {doc.Description && (
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{doc.Description}</p>
           )}
+          <RepoSourceHeaderLine docId={doc.ItemId} />
         </div>
 
         {version && (
@@ -360,6 +362,7 @@ export const DocDetailPage = () => {
         onClose={() => setEditDocOpen(false)}
         doc={doc}
         onSave={onSaveDoc}
+        canManageSource={can("source.manage")}
       />
       <VersionsDialog
         open={versionsOpen}

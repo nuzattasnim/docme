@@ -8,12 +8,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import type { Doc, DocUpdate } from "../types";
+import { RepoSourceSection } from "@/features/sources/components/repo-source-section";
 
 export interface EditDocModalProps {
   open: boolean;
   onClose: () => void;
   doc: Doc;
   onSave: (patch: DocUpdate) => Promise<void>;
+  /** Admins edit the repo link; everyone else sees the summary (SPEC3 §4). */
+  canManageSource?: boolean;
 }
 
 /**
@@ -26,6 +29,7 @@ export function EditDocModal({
   onClose,
   doc,
   onSave,
+  canManageSource = false,
 }: EditDocModalProps) {
   const [nameDraft, setNameDraft] = useState(doc.Name);
   const [descriptionDraft, setDescriptionDraft] = useState(
@@ -79,7 +83,7 @@ export function EditDocModal({
       isOpen={open}
       onClose={onClose}
       title="Edit doc details"
-      description="Update the doc name and description. Saves to the Blocks data gateway."
+      description="Update the doc name, description and source repository."
       maxWidthClass="max-w-lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -134,6 +138,11 @@ export function EditDocModal({
           </Button>
         </div>
       </form>
+      {open && (
+        <div className="mt-4">
+          <RepoSourceSection docId={doc.ItemId} canManage={canManageSource} />
+        </div>
+      )}
     </Dialog>
   );
 }

@@ -10,12 +10,14 @@
  * Filters: { Field: { eq | neq | in } }, all conditions ANDed.
  */
 export type Rec = Record<string, unknown> & { ItemId: string };
-type Schema = "Doc" | "DocVersion" | "Page";
+type Schema = "Doc" | "DocVersion" | "Page" | "DocSource" | "Comment";
 
 const QUERY_TO_SCHEMA: Record<string, Schema> = {
   getDocs: "Doc",
   getDocVersions: "DocVersion",
   getPages: "Page",
+  getDocSources: "DocSource",
+  getComments: "Comment",
 };
 
 export interface RequestLog {
@@ -31,6 +33,8 @@ export class FakeGateway {
     Doc: new Map(),
     DocVersion: new Map(),
     Page: new Map(),
+    DocSource: new Map(),
+    Comment: new Map(),
   };
   readonly log: RequestLog[] = [];
   private seq = 0;
@@ -85,7 +89,7 @@ export class FakeGateway {
       return { data };
     }
 
-    for (const m of req.query.matchAll(/(?:(\w+):\s*)?(insert|update|delete)(Doc|DocVersion|Page)\(([^)]*)\)/g)) {
+    for (const m of req.query.matchAll(/(?:(\w+):\s*)?(insert|update|delete)(DocVersion|DocSource|Doc|Page|Comment)\(([^)]*)\)/g)) {
       const [, alias, verb, schema, args] = m;
       const key = alias ?? `${verb}${schema}`;
       const inputVar = /input: \$(\w+)/.exec(args)?.[1];

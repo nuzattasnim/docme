@@ -2,6 +2,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ContentRendererProps } from "./types";
 import { slugify } from "@/lib/slugify";
+import { rehypeSourcePositions } from "./source-positions";
+
+const REHYPE_PLUGINS = [rehypeSourcePositions];
 
 /**
  * Markdown renderer — uses `react-markdown` with GitHub-flavored markdown
@@ -21,6 +24,7 @@ export function MarkdownRenderer({ content }: ContentRendererProps) {
     <div className="doc-md max-w-prose space-y-3 text-sm leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={REHYPE_PLUGINS}
         components={{
           h1: ({ children, ...props }) => (
             <h1

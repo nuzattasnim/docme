@@ -172,3 +172,37 @@ It waits for the in-app steps, in this order (§6 rollout):
 3. Rule R7: editing a doc's name still works for an editor/admin, and `updateDoc(where, {OrganizationId: "<Y>"})` is refused. If every edit is refused instead, remove `LOCK_ORG` from `scripts/gen-rules.cjs`, regenerate and redeploy.
 4. C10: as the viewer (Y), `getBlocksClient().iam.users.updateAccess({...})` from the console is refused.
 5. The §10 identities other than the test user need accounts (U-ED, U-B, U-NONE, U-NOROLE, U-MULTI); none exist yet.
+
+## Phase 3 (SPEC3) — DocSource and Comment (2026-11-19)
+
+### Applied with the CLI (dry-run reviewed, then `--yes`)
+| Step | Command | Result |
+|---|---|---|
+| Schemas | `blocks data schema push` (adds `blocks/data/schemas/{DocSource,Comment}.json`) | DocSource `f5163dd9-3381-46ea-a385-33aa1d699967`, Comment `6f6a8668-b2c0-406f-8c55-7a2a674272b7`; new-schema access **User** (signed-in only) until the rules deploy; gateway v16. Operations: `getDocSources`/`insertDocSource`/…, `getComments`/`insertComment`/…/`deleteManyComment` |
+| Indexes | `blocks data schema indexes create --schema-id <id> --fields … [--unique]` | `DocSource.DocId_1` (**unique**), `Comment.PageId_1_CreatedDate_1`, `ParentCommentId_1`, `VersionId_1`, `DocId_1` |
+| Validations | `blocks data validation save --file blocks/data/validations/<Schema>.<Field>.json` | `Comment.Body` (not empty, ≤ 5,000), `DocSource.RepoOwner`/`RepoName` (regex), `Branch` (not empty, ≤ 255), `DocsPath` (not empty, ≤ 500) |
+| Reload | `blocks data reload` | gateway v27 |
+| Release secret | `blocks release secrets sync --file .env.tools` (merge) | adds `VITE_ENABLE_DEV_TOOLS=true` (temporary, for the §10 console helper) |
+
+### Staged, NOT yet deployed
+`node scripts/gen-rules.cjs` → `blocks/data/rules.json`: 26 SPEC2 + 22 SPEC3 policies, 5 `OrganizationId` locks, the S0 probe policy, and 20 security entries (`accessLevel: 3` on all five schemas). `blocks data rules deploy --dry-run` validates it (54 policies, 20 security entries). It ships in the **same** deploy as SPEC2 (step 3 of "Phase 2 rollout" above), after Assign + Reconcile. Reconcile now also fixes `Comment.ReaderVisible`.
+
+### Decisions taken during implementation (delegated by the user)
+| # | Decision | Why |
+|---|---|---|
+| D1 | Column-level EDIT locks: `Status`/`ResolvedBy`/`ResolvedDate` and `ReaderVisible` are editor/admin only. | The §6.2 row rule lets an author edit their own comment; without these a viewer could resolve their own thread, which the role matrix gives to editors. |
+| D2 | A non-admin author can delete a thread root only when every reply is their own; otherwise "ask an admin". | Comment DELETE is author-or-admin (C9) and a refused filter delete looks like an empty one, so deleting the root would orphan other people's replies. |
+| D3 | `deletePage` deletes the page's comments, then checks none are left; if some are (an editor can't delete others' comments), it stops with "ask an admin" and keeps the page. | Keeps C9 and H12 (no comments referring to a deleted page) both true. Doc and version deletes are admin-only, so they always clear comments. |
+| D4 | Server validations only on fields every record has. Optional fields (`BaselineCommitSha`, anchor fields) are validated client-side. | Unverified how a regex/length validation treats a null field; a refusal there would block replies and Page comments. |
+| D5 | The read-only repo summary also shows as one line under the doc title, for every role, when linked. | Viewers can't open the Edit Doc modal (doc.edit), but H3 needs them to see the link. |
+| D6 | Renderer source ranges come from one rehype plugin (`content-renderers/source-positions.ts`) used by the Markdown and MDX renderers. | One place, no change to any component override; attributes only (C14). |
+| D7 | Fuzzy re-anchoring searches a ±1,100-character slice around the stored start. | Bitap can't accept a match more than `Match_Threshold × Match_Distance` = 400 characters away, so results are identical; p95 for H13 went from 69 ms to 31 ms under a parallel test run. |
+| D8 | Renderer tests use `react-dom/server` in the node test environment instead of adding `@testing-library/react`. | Same evidence for H7 without a new devDependency. |
+
+### Open gate: S0 addendum Q8 (C15) — must pass before comment writes rely on the rules
+Run after the rules deploy, signed in as the test user, with `window.__docmeDev.comments` (deployed dev build):
+1. **Q8(b) insert-field rule.** As a viewer (testorg2): `raw.insertComment({... , ReaderVisible: true})` on a published page succeeds; the same with `ReaderVisible: false` is refused.
+2. **Q8(a) column rule.** As an editor: `raw.updateComment(<someone else's id>, {Body: "x"})` is refused; `resolve(<root id>)` succeeds.
+3. **D1.** As a viewer: `resolve(<own root id>)` is refused.
+
+If 1 or 2 fails, comment write access is client-only: **stop** (C15), do not build the comment panel on it, and take the evidence to the user.

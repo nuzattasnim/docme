@@ -16,6 +16,8 @@ interface ImportMetaEnv {
   readonly VITE_PERF_MARKS?: string;
   /** "true" compiles the temporary SPEC2 S0 probe into /settings. Never set in .env.release. */
   readonly VITE_ENABLE_SPIKE?: string;
+  /** "true" registers the SPEC3 `window.__docmeDev.comments` console helper. Never set in .env.release. */
+  readonly VITE_ENABLE_DEV_TOOLS?: string;
 }
 
 interface ImportMeta {

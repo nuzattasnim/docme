@@ -1,0 +1,17 @@
+{
+  "schemaId": "f5163dd9-3381-46ea-a385-33aa1d699967",
+  "fieldName": "Branch",
+  "validations": [
+    {
+      "type": 0,
+      "errorMessage": "Branch is required",
+      "isActive": true
+    },
+    {
+      "type": 3,
+      "value": 255,
+      "errorMessage": "Branch name is not valid",
+      "isActive": true
+    }
+  ]
+}

@@ -23,6 +23,8 @@ ARG VITE_BLOCKS_REDIRECT_URI=
 # secret set turns them on for a temporary tools deploy; turn them off again after.
 ARG VITE_ENABLE_MIGRATION=false
 ARG VITE_ENABLE_SPIKE=false
+# SPEC3 E2E console helper (window.__docmeDev.comments). Same rule: temporary only.
+ARG VITE_ENABLE_DEV_TOOLS=false
 
 ENV VITE_BLOCKS_API_URL=${VITE_BLOCKS_API_URL} \
     VITE_BLOCKS_PROJECT_KEY=${VITE_BLOCKS_PROJECT_KEY} \
@@ -30,7 +32,8 @@ ENV VITE_BLOCKS_API_URL=${VITE_BLOCKS_API_URL} \
     VITE_BLOCKS_OIDC_URL=${VITE_BLOCKS_OIDC_URL} \
     VITE_BLOCKS_REDIRECT_URI=${VITE_BLOCKS_REDIRECT_URI} \
     VITE_ENABLE_MIGRATION=${VITE_ENABLE_MIGRATION} \
-    VITE_ENABLE_SPIKE=${VITE_ENABLE_SPIKE}
+    VITE_ENABLE_SPIKE=${VITE_ENABLE_SPIKE} \
+    VITE_ENABLE_DEV_TOOLS=${VITE_ENABLE_DEV_TOOLS}
 
 RUN npx tsc -b \
   && NODE_OPTIONS="--max-old-space-size=4096" npx vite build --mode "${ci_build}"

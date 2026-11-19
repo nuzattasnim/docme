@@ -59,11 +59,62 @@ const policies = [
   allow("Page", "READ", "viewer-visible", [ORG, role(VIEWER), isTrue("ReaderVisible")]),
 ];
 
+// ---- SPEC3 §6.1 / §6.2: DocSource and Comment ----
+const isCaller = { leftSource: 1, leftOperand: "CreatedBy", operator: 0, rightSource: 0, rightOperand: "userId", rightOperands: [], staticValue: null, description: null };
+
+function spec3(schemaName, op, name, rules, extra = {}) {
+  return { ...allow(schemaName, op, name, rules), policyDescription: `SPEC3 ${schemaName} ${op}: ${name}`, ...extra };
+}
+
+/** Column-level EDIT policy (policyType 1): only callers matching `rules` may change `fields`. */
+function column(schemaName, name, fields, rules) {
+  return spec3(schemaName, "EDIT", name, rules, { policyType: 1, fieldNames: fields });
+}
+
+const ANCHOR_AND_BODY = ["Body", "AnchorKind", "AnchorExact", "AnchorPrefix", "AnchorSuffix", "AnchorStart", "AnchorEnd"];
+const RESOLUTION = ["Status", "ResolvedBy", "ResolvedDate"];
+
+const spec3Policies = [
+  // DocSource: every docme role reads (the read-only summary); admins manage.
+  spec3("DocSource", "READ", "admin", [ORG, role(ADMIN)]),
+  spec3("DocSource", "READ", "editor", [ORG, role(EDITOR)]),
+  spec3("DocSource", "READ", "viewer", [ORG, role(VIEWER)]),
+  spec3("DocSource", "WRITE", "admin", [role(ADMIN)]),
+  spec3("DocSource", "EDIT", "admin", [ORG, role(ADMIN)]),
+  spec3("DocSource", "DELETE", "admin", [ORG, role(ADMIN)]),
+
+  // Comment READ / WRITE: editors and admins; viewers only where ReaderVisible.
+  spec3("Comment", "READ", "admin", [ORG, role(ADMIN)]),
+  spec3("Comment", "READ", "editor", [ORG, role(EDITOR)]),
+  spec3("Comment", "READ", "viewer-visible", [ORG, role(VIEWER), isTrue("ReaderVisible")]),
+  spec3("Comment", "WRITE", "admin", [role(ADMIN)]),
+  spec3("Comment", "WRITE", "editor", [role(EDITOR)]),
+  // S0 Q8(b): a WRITE rule that tests a field of the record being inserted.
+  spec3("Comment", "WRITE", "viewer-visible", [role(VIEWER), isTrue("ReaderVisible")]),
+
+  // Row-level EDIT: the author, an editor or an admin, in the same organization.
+  spec3("Comment", "EDIT", "author", [ORG, isCaller]),
+  spec3("Comment", "EDIT", "editor", [ORG, role(EDITOR)]),
+  spec3("Comment", "EDIT", "admin", [ORG, role(ADMIN)]),
+  // Column-level EDIT (S0 Q8(a)): only the author changes the body and anchor.
+  column("Comment", "body-author", ANCHOR_AND_BODY, [isCaller]),
+  // SPEC3 decision D1: only editors/admins resolve, reopen, or change visibility —
+  // without these, a viewer could resolve their own thread through the author row rule.
+  column("Comment", "resolution-editor", RESOLUTION, [role(EDITOR)]),
+  column("Comment", "resolution-admin", RESOLUTION, [role(ADMIN)]),
+  column("Comment", "readervisible-editor", ["ReaderVisible"], [role(EDITOR)]),
+  column("Comment", "readervisible-admin", ["ReaderVisible"], [role(ADMIN)]),
+
+  // DELETE: the author or an admin.
+  spec3("Comment", "DELETE", "author", [ORG, isCaller]),
+  spec3("Comment", "DELETE", "admin", [ORG, role(ADMIN)]),
+];
+
 // S0 Q5: the creator could change OrganizationId. A column-level EDIT policy
 // on that field that only a role nobody holds can satisfy keeps every docme
 // role from moving a record into another organization. (Its enforcement is
 // an E2E check: docs/blocks-data-access.md, "Rules rollout".)
-const LOCK_ORG = ["Doc", "DocVersion", "Page"].map((schemaName) => ({
+const LOCK_ORG = ["Doc", "DocVersion", "Page", "DocSource", "Comment"].map((schemaName) => ({
   schemaName,
   policyName: "docme-edit-organizationid-locked",
   policyDescription: "SPEC2: nobody may change OrganizationId after the legacy assignment",
@@ -84,10 +135,12 @@ const s0 = {
   priority: 1, isAllowPolicy: true,
 };
 
-const security = ["Doc", "DocVersion", "Page"].flatMap((schemaName) =>
+const security = ["Doc", "DocVersion", "Page", "DocSource", "Comment"].flatMap((schemaName) =>
   [0, 1, 2, 3].map((operation) => ({ schemaName, operation, policyType: 0, accessLevel: 3, fieldNames: [] })),
 );
 
-const out = { policies: [...policies, ...LOCK_ORG, s0], security };
+const out = { policies: [...policies, ...spec3Policies, ...LOCK_ORG, s0], security };
 fs.writeFileSync(path.join(__dirname, "..", "blocks", "data", "rules.json"), JSON.stringify(out, null, 2) + "\n");
-console.log(`${policies.length} docme policies, ${security.length} security entries`);
+console.log(
+  `${policies.length} SPEC2 + ${spec3Policies.length} SPEC3 policies, ${LOCK_ORG.length} org locks, ${security.length} security entries`,
+);

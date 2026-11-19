@@ -187,7 +187,7 @@ export function AddVersionModal({ open, onClose, doc }: AddVersionModalProps) {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {canDuplicate || !source
-                    ? "Copies every page into the new version. Editing the copy never changes the original."
+                    ? `Copies every page into the new version. Editing the copy never changes the original. Comments stay on version ${source?.Version ?? "the original"}.`
                     : "Not available: the current version isn't ready (it needs migration or its copy is incomplete)."}
                 </p>
               </div>

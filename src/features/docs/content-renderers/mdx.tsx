@@ -2,6 +2,7 @@ import { useEffect, useState, type ComponentType } from "react";
 import { evaluate } from "@mdx-js/mdx";
 import * as runtime from "react/jsx-runtime";
 import type { ContentRendererProps } from "./types";
+import { rehypeSourcePositions } from "./source-positions";
 
 /**
  * Cache of compiled MDX components keyed by the source content string.
@@ -17,7 +18,8 @@ const cache = new Map<string, Promise<{ default: ComponentType }>>();
 function compile(content: string): Promise<{ default: ComponentType }> {
   const hit = cache.get(content);
   if (hit) return hit;
-  const promise = evaluate(content, { ...runtime }).then((mod) => ({
+  // data-src-* on block elements, for comment anchoring (SPEC3 §6.3).
+  const promise = evaluate(content, { ...runtime, rehypePlugins: [rehypeSourcePositions] }).then((mod) => ({
     default: mod.default as ComponentType,
   }));
   cache.set(content, promise);

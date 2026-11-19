@@ -12,7 +12,10 @@
 import { listAllRecords, updateRecords, type SchemaName } from "@/features/docs/services";
 import { ROOT_ORGANIZATION_ID } from "@/features/orgs/api";
 
-const SCHEMAS: readonly SchemaName[] = ["Doc", "DocVersion", "Page"];
+// Only the pre-Phase-2 schemas can hold legacy records; DocSource and Comment
+// (SPEC3) are always inserted with the caller's active organization (S0 Q1).
+const SCHEMAS = ["Doc", "DocVersion", "Page"] as const satisfies readonly SchemaName[];
+type LegacySchema = (typeof SCHEMAS)[number];
 
 interface OrgRow {
   ItemId: string;
@@ -40,7 +43,7 @@ export interface LegacyAssignmentReport {
 
 const zero = (): LegacyCounts => ({ Doc: 0, DocVersion: 0, Page: 0 });
 
-async function readOrgRows(schema: SchemaName): Promise<OrgRow[]> {
+async function readOrgRows(schema: LegacySchema): Promise<OrgRow[]> {
   return listAllRecords<OrgRow>(schema, "ItemId OrganizationId", { pageSize: 200 });
 }
 
@@ -58,7 +61,7 @@ export async function scanLegacyOrganization(organizationId: string): Promise<{
   return { pending, inOrganization };
 }
 
-export type LegacyProgress = (schema: SchemaName, done: number, total: number) => void;
+export type LegacyProgress = (schema: LegacySchema, done: number, total: number) => void;
 
 /** Move every legacy record into `organizationId`. Docs first, pages last. */
 export async function assignLegacyToOrganization(

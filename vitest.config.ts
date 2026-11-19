@@ -7,7 +7,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
     env: {
       VITE_BLOCKS_API_URL: "https://api.test",
       VITE_BLOCKS_PROJECT_KEY: "test-key",

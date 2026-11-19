@@ -226,3 +226,7 @@ Release builds what is pushed to `dev`, so commit and push `Dockerfile`,
 
 - Add other schemas (`npx shadcn@latest add <component>` for more UI primitives).
 - Phase 2: organization isolation, roles and data access rules; remove the deprecated `DocVersion.Pages` field.
+
+## Third-party licenses
+
+- `diff-match-patch` (Apache-2.0) — fuzzy re-anchoring of paragraph comments (SPEC3 §6.3).

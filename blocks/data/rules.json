@@ -907,6 +907,748 @@
       "isAllowPolicy": true
     },
     {
+      "schemaName": "DocSource",
+      "policyName": "docme-read-admin",
+      "policyDescription": "SPEC3 DocSource READ: admin",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocSource",
+      "policyName": "docme-read-editor",
+      "policyDescription": "SPEC3 DocSource READ: editor",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocSource",
+      "policyName": "docme-read-viewer",
+      "policyDescription": "SPEC3 DocSource READ: viewer",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-viewer",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocSource",
+      "policyName": "docme-write-admin",
+      "policyDescription": "SPEC3 DocSource WRITE: admin",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocSource",
+      "policyName": "docme-edit-admin",
+      "policyDescription": "SPEC3 DocSource EDIT: admin",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocSource",
+      "policyName": "docme-delete-admin",
+      "policyDescription": "SPEC3 DocSource DELETE: admin",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-read-admin",
+      "policyDescription": "SPEC3 Comment READ: admin",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-read-editor",
+      "policyDescription": "SPEC3 Comment READ: editor",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-read-viewer-visible",
+      "policyDescription": "SPEC3 Comment READ: viewer-visible",
+      "policyType": 0,
+      "operation": 0,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-viewer",
+            "description": null
+          },
+          {
+            "leftSource": 1,
+            "leftOperand": "ReaderVisible",
+            "operator": 0,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "true",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-write-admin",
+      "policyDescription": "SPEC3 Comment WRITE: admin",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-write-editor",
+      "policyDescription": "SPEC3 Comment WRITE: editor",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-write-viewer-visible",
+      "policyDescription": "SPEC3 Comment WRITE: viewer-visible",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-viewer",
+            "description": null
+          },
+          {
+            "leftSource": 1,
+            "leftOperand": "ReaderVisible",
+            "operator": 0,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "true",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-edit-author",
+      "policyDescription": "SPEC3 Comment EDIT: author",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 1,
+            "leftOperand": "CreatedBy",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "userId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-edit-editor",
+      "policyDescription": "SPEC3 Comment EDIT: editor",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-edit-admin",
+      "policyDescription": "SPEC3 Comment EDIT: admin",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-edit-body-author",
+      "policyDescription": "SPEC3 Comment EDIT: body-author",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "Body",
+        "AnchorKind",
+        "AnchorExact",
+        "AnchorPrefix",
+        "AnchorSuffix",
+        "AnchorStart",
+        "AnchorEnd"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "CreatedBy",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "userId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-edit-resolution-editor",
+      "policyDescription": "SPEC3 Comment EDIT: resolution-editor",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "Status",
+        "ResolvedBy",
+        "ResolvedDate"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-edit-resolution-admin",
+      "policyDescription": "SPEC3 Comment EDIT: resolution-admin",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "Status",
+        "ResolvedBy",
+        "ResolvedDate"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-edit-readervisible-editor",
+      "policyDescription": "SPEC3 Comment EDIT: readervisible-editor",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "ReaderVisible"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-editor",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-edit-readervisible-admin",
+      "policyDescription": "SPEC3 Comment EDIT: readervisible-admin",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "ReaderVisible"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-delete-author",
+      "policyDescription": "SPEC3 Comment DELETE: author",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 1,
+            "leftOperand": "CreatedBy",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "userId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
+      "policyName": "docme-delete-admin",
+      "policyDescription": "SPEC3 Comment DELETE: admin",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 1,
+            "leftOperand": "OrganizationId",
+            "operator": 0,
+            "rightSource": 0,
+            "rightOperand": "organizationId",
+            "rightOperands": [],
+            "staticValue": null,
+            "description": null
+          },
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-admin",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
       "schemaName": "Doc",
       "policyName": "docme-edit-organizationid-locked",
       "policyDescription": "SPEC2: nobody may change OrganizationId after the legacy assignment",
@@ -964,6 +1706,62 @@
     },
     {
       "schemaName": "Page",
+      "policyName": "docme-edit-organizationid-locked",
+      "policyDescription": "SPEC2: nobody may change OrganizationId after the legacy assignment",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "OrganizationId"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-org-mover-unassigned",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "DocSource",
+      "policyName": "docme-edit-organizationid-locked",
+      "policyDescription": "SPEC2: nobody may change OrganizationId after the legacy assignment",
+      "policyType": 1,
+      "operation": 2,
+      "fieldNames": [
+        "OrganizationId"
+      ],
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "docme-org-mover-unassigned",
+            "description": null
+          }
+        ],
+        "nestedGroups": []
+      },
+      "priority": 1,
+      "isAllowPolicy": true
+    },
+    {
+      "schemaName": "Comment",
       "policyName": "docme-edit-organizationid-locked",
       "policyDescription": "SPEC2: nobody may change OrganizationId after the legacy assignment",
       "policyType": 1,
@@ -1107,6 +1905,62 @@
     },
     {
       "schemaName": "Page",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "DocSource",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "DocSource",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "DocSource",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "DocSource",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Comment",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Comment",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Comment",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Comment",
       "operation": 3,
       "policyType": 0,
       "accessLevel": 3,
