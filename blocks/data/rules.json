@@ -1787,42 +1787,6 @@
       },
       "priority": 1,
       "isAllowPolicy": true
-    },
-    {
-      "schemaName": "S0Probe",
-      "policyName": "Allow",
-      "policyDescription": "SPEC2 S0 probe: same-org and Visible only (positive test)",
-      "policyType": 0,
-      "operation": 0,
-      "fieldNames": [],
-      "ruleGroup": {
-        "logicalOperator": 0,
-        "rules": [
-          {
-            "leftSource": 1,
-            "leftOperand": "OrganizationId",
-            "operator": 0,
-            "rightSource": 0,
-            "rightOperand": "organizationId",
-            "rightOperands": [],
-            "staticValue": null,
-            "description": null
-          },
-          {
-            "leftSource": 1,
-            "leftOperand": "Visible",
-            "operator": 0,
-            "rightSource": 2,
-            "rightOperand": "",
-            "rightOperands": [],
-            "staticValue": "true",
-            "description": null
-          }
-        ],
-        "nestedGroups": []
-      },
-      "priority": 1,
-      "isAllowPolicy": true
     }
   ],
   "security": [

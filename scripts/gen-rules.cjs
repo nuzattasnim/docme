@@ -126,20 +126,11 @@ const LOCK_ORG = ["Doc", "DocVersion", "Page", "DocSource", "Comment"].map((sche
   isAllowPolicy: true,
 }));
 
-// S0 probe policy (temporary; removed with the probe).
-const s0 = {
-  schemaName: "S0Probe", policyName: "Allow",
-  policyDescription: "SPEC2 S0 probe: same-org and Visible only (positive test)",
-  policyType: 0, operation: 0, fieldNames: [],
-  ruleGroup: { logicalOperator: 0, rules: [ORG, isTrue("Visible")], nestedGroups: [] },
-  priority: 1, isAllowPolicy: true,
-};
-
 const security = ["Doc", "DocVersion", "Page", "DocSource", "Comment"].flatMap((schemaName) =>
   [0, 1, 2, 3].map((operation) => ({ schemaName, operation, policyType: 0, accessLevel: 3, fieldNames: [] })),
 );
 
-const out = { policies: [...policies, ...spec3Policies, ...LOCK_ORG, s0], security };
+const out = { policies: [...policies, ...spec3Policies, ...LOCK_ORG], security };
 fs.writeFileSync(path.join(__dirname, "..", "blocks", "data", "rules.json"), JSON.stringify(out, null, 2) + "\n");
 console.log(
   `${policies.length} SPEC2 + ${spec3Policies.length} SPEC3 policies, ${LOCK_ORG.length} org locks, ${security.length} security entries`,

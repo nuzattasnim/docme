@@ -25,12 +25,6 @@ const OrgToolsPanel =
 		? lazy(() => import("@/features/migration/org-tools-panel"))
 		: null;
 
-// TEMPORARY (SPEC2 spike S0): only in builds with VITE_ENABLE_SPIKE=true.
-const S0ProbePanel =
-	import.meta.env.VITE_ENABLE_SPIKE === "true"
-		? lazy(() => import("@/features/access/s0-probe-panel"))
-		: null;
-
 /**
  * Settings — `/settings`. Account preferences live in the topbar today; the
  * data migration card appears here in migration-enabled builds only.
@@ -73,11 +67,6 @@ export function SettingsPage() {
 			{OrgToolsPanel && (
 				<Suspense fallback={<Skeleton className="h-48 w-full" />}>
 					<OrgToolsPanel />
-				</Suspense>
-			)}
-			{S0ProbePanel && (
-				<Suspense fallback={<Skeleton className="h-48 w-full" />}>
-					<S0ProbePanel />
 				</Suspense>
 			)}
 			{MigrationPanel && (

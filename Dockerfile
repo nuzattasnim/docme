@@ -19,10 +19,9 @@ ARG VITE_BLOCKS_OIDC_CLIENT_ID
 ARG VITE_BLOCKS_OIDC_URL=https://iam.seliseblocks.com
 # Optional: leave empty so the app uses <its own origin>/login/callback.
 ARG VITE_BLOCKS_REDIRECT_URI=
-# Admin tools (SPEC1 data migration, SPEC2 S0 probe). Off unless the repo's
+# Admin tools (SPEC1 data migration, SPEC2 organization tools). Off unless the repo's
 # secret set turns them on for a temporary tools deploy; turn them off again after.
 ARG VITE_ENABLE_MIGRATION=false
-ARG VITE_ENABLE_SPIKE=false
 # SPEC3 E2E console helper (window.__docmeDev.comments). Same rule: temporary only.
 ARG VITE_ENABLE_DEV_TOOLS=false
 
@@ -32,7 +31,6 @@ ENV VITE_BLOCKS_API_URL=${VITE_BLOCKS_API_URL} \
     VITE_BLOCKS_OIDC_URL=${VITE_BLOCKS_OIDC_URL} \
     VITE_BLOCKS_REDIRECT_URI=${VITE_BLOCKS_REDIRECT_URI} \
     VITE_ENABLE_MIGRATION=${VITE_ENABLE_MIGRATION} \
-    VITE_ENABLE_SPIKE=${VITE_ENABLE_SPIKE} \
     VITE_ENABLE_DEV_TOOLS=${VITE_ENABLE_DEV_TOOLS}
 
 RUN npx tsc -b \

@@ -187,8 +187,10 @@ Driven by a headless Edge session on the deployed site (hosted login), signed in
 - **Orphans deleted** (admin session): DocVersion `ace094e8…` and its 4 Pages; nothing left.
 - **Version history UI** (commit `712b668`, deployed): 13/13 pass on "Mock Doc." — the Versions dialog offers View / Restore as new version / Make current on non-current versions; View shows the read-only "Viewing version" banner without changing CurrentVersion; Back to current; Restore copies 0.0.2 (4 pages, `SourceVersionId` set) into a new current version; Make current switches back; the temporary version and its pages were deleted afterwards.
 
-### Remaining
-Flags off and S0 probe removal (see the memory/rollout notes), and revoking the test account's roles.
+### Cleanup, 2026-11-20
+- Release secrets: `VITE_ENABLE_MIGRATION`, `VITE_ENABLE_SPIKE`, `VITE_ENABLE_DEV_TOOLS` set to `false` (`blocks release secrets sync --file .env.tools`); effective from the next build. The migration/organization tools and the console helper stay in the repo behind their flags (SPEC1 C10).
+- S0 probe removed: `src/features/access/s0-probe-panel.tsx`, `blocks/data/schemas/S0Probe.json`, the `VITE_ENABLE_SPIKE` flag, and the probe policy in `scripts/gen-rules.cjs`. In Blocks: policy `14c203cf…` deleted, schema `S0Probe` (`774efbe9…`) deleted, gateway reloaded (v31). `blocks/data/rules.json` now has 53 policies + 20 security entries.
+- Test account `docmetest@yopmail.com` (`9d608a0e…`): roles revoked in test org and testorg2; the account is kept for future E2E runs.
 
 ## Phase 3 (SPEC3) — DocSource and Comment (2026-11-19)
 
