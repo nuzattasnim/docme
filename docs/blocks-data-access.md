@@ -166,12 +166,27 @@ Rolled out in this order (§6 rollout):
 3. `blocks data rules deploy --dry-run`, then `--yes` (it reloads the gateway). Done 2026-11-20: 75/75 saved, gateway v28 (74 changes). `rules pull` returns the same 54 policy names; all five docme schemas show access level 3. `schema list` still shows 0 in its per-schema policy counters (stale counter, see 2026-11-18 note).
 4. Sign out and in again, so the session carries the new roles.
 
-### Open checks (E2E, after the rules are live)
-1. Q4 remainder: switching X → Y changes `me().roles` (admin → viewer in the UI). If not, the UI gating is wrong but the server still enforces.
-2. Viewer in Y sees only published/active versions; a draft page id returns nothing (C4).
-3. Rule R7: editing a doc's name still works for an editor/admin, and `updateDoc(where, {OrganizationId: "<Y>"})` is refused. If every edit is refused instead, remove `LOCK_ORG` from `scripts/gen-rules.cjs`, regenerate and redeploy.
-4. C10: as the viewer (Y), `getBlocksClient().iam.users.updateAccess({...})` from the console is refused.
-5. The §10 identities other than the test user need accounts (U-ED, U-B, U-NONE, U-NOROLE, U-MULTI); none exist yet.
+### E2E run, 2026-11-20 (deployed dev build, rules live)
+Driven by a headless Edge session on the deployed site (hosted login), signed in as test account `docmetest@yopmail.com` (`9d608a0e…`, created for this run, password login). Its role was changed with `blocks iam users access grant|revoke` between stages: editor in X → viewer in X → no role → admin in X + viewer in Y. All writes that could fail open ran on scratch records, which were deleted afterwards.
+
+| Stage | Result | Checks |
+|---|---|---|
+| Editor (X) | 18/18 pass | create doc/version, publish; edit doc (R7 positive); move doc to Y refused, record stays in X (R7); delete doc/version refused; **Q8(a)**: another user's comment Body refused and unchanged, resolve + reopen allowed (H10); own comment create/edit/delete (H8, H11); `updateAccess` refused (C10); Members page "Admins only" |
+| Viewer (X) | 20/20 pass | lists only published/active versions and ReaderVisible pages (C4); draft page by id returns nothing; no hidden comments; doc/page edit and doc insert refused; **Q8(b)**: comment insert with ReaderVisible true allowed, false refused; **D1**: resolving own thread refused (stays Open), hiding own comment refused; own body edit allowed; doc opens published 0.0.2 read-only with no edit controls (H7); Members "Admins only" |
+| No role | 7/7 pass | every schema read returns nothing; insert refused; app shows "You're not in an organization yet" (C6) |
+| Admin (X) + viewer (Y) | 13/14 pass | admin deletes comments/versions/docs (C9, cleanup); switcher X → Y changes roles admin → viewer (**Q4**); from Y, X's doc, pages and comments return nothing and the doc URL shows "Doc not found" (**C1**); Members in Y "Admins only"; switching back restores admin. **Fail: H8**, see below |
+
+**H8 fails — Members page shows "Couldn't load members — Blocks API 403" for an admin.** `POST /iam/v4/iam/users` and `GET /iam/v4/iam/roles/assignable` return 403. The four R4 permissions were assigned to `docme-admin` in the root `default` organization only (`blocks iam permissions list --roles docme-admin` shows `organizationId: default`); IAM evaluates Endpoint permissions in the active organization. Fix (needs approval): `blocks iam roles assign-permissions docme-admin --organization-id <org> --add-permissions blocks-iam::iam::users,blocks-iam::iam::manage-user-roles,blocks-iam::iam::roles,blocks-iam::iam::revoke-user-access` for X and Y (and for every future organization), then re-run H8.
+
+**Data finding:** version `ace094e8…` ("0.0.1", 4 pages) belongs to Doc `c2eb53cb…`, which no longer exists — left behind by an earlier delete (before the cascade fix for one-record-per-call filter deletes). It is in X and invisible in the UI. Clean up as admin.
+
+**Harness notes:** `switch-org` works only with the hosted-login session cookie; a password-login session gets `401 session_expired`, and a raw `switch-org` call from the page did not change the app's organization — use the app's switcher (avatar menu). Scripts live outside the repo (scratchpad).
+
+### Remaining
+1. H8 after the permission fix above.
+2. Version history UI (commit `712b668`: View / Restore as new version / Make current) once deployed.
+3. Orphaned version cleanup.
+4. Then flags off and S0 probe removal (see the memory/rollout notes).
 
 ## Phase 3 (SPEC3) — DocSource and Comment (2026-11-19)
 
