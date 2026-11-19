@@ -1,4 +1,4 @@
-import { Trash2, FolderOpen } from "lucide-react";
+import { Trash2, Eye, History, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,13 @@ export interface VersionCardProps {
   version: DocVersion;
   /** This version is Doc.CurrentVersion. */
   isCurrent: boolean;
+  /** The doc page is showing this version now. */
+  isViewing?: boolean;
   onOpen: () => Promise<void>;
+  /** Editors: make this version Doc.CurrentVersion. */
+  onMakeCurrent?: () => Promise<void>;
+  /** Editors: copy this version into a new current version. */
+  onRestore?: () => void;
   onTogglePublished: () => Promise<void>;
   onToggleActive: () => Promise<void>;
   onDelete: () => Promise<void>;
@@ -33,7 +39,10 @@ export interface VersionCardProps {
 export function VersionCard({
   version,
   isCurrent,
+  isViewing,
   onOpen,
+  onMakeCurrent,
+  onRestore,
   onTogglePublished,
   onToggleActive,
   onDelete,
@@ -56,6 +65,7 @@ export function VersionCard({
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <span className="font-mono">{version.Version || "—"}</span>
             {isCurrent && <Badge variant="outline">Current</Badge>}
+            {isViewing && !isCurrent && <Badge variant="secondary">Viewing</Badge>}
             <VersionStateBadge version={version} />
           </CardTitle>
           <CardDescription className="font-mono text-xs">{version.ItemId}</CardDescription>
@@ -71,9 +81,19 @@ export function VersionCard({
       <CardContent className="space-y-3 p-4 pt-0">
         {!editable && <VersionStateAlert version={version} />}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {!isCurrent && (
+          {!isViewing && (
             <Button size="sm" variant="outline" onClick={onOpen} disabled={busy}>
-              <FolderOpen className="h-3.5 w-3.5" /> Open
+              <Eye className="h-3.5 w-3.5" /> View
+            </Button>
+          )}
+          {onRestore && !isCurrent && editable && (
+            <Button size="sm" variant="outline" onClick={onRestore} disabled={busy}>
+              <History className="h-3.5 w-3.5" /> Restore as new version
+            </Button>
+          )}
+          {onMakeCurrent && !isCurrent && editable && (
+            <Button size="sm" variant="outline" onClick={onMakeCurrent} disabled={busy}>
+              <Star className="h-3.5 w-3.5" /> Make current
             </Button>
           )}
           {!canDelete ? null : deleteBlockedReason ? (

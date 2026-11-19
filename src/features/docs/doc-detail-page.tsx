@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Menu, Pencil, X, ArrowLeft, Layers, RotateCw } from "lucide-react";
+import { AlertCircle, Menu, Pencil, X, ArrowLeft, Layers, RotateCw, Eye, History, Star } from "lucide-react";
 import { toast } from "sonner";
 import { errorMessage, isDocmeDataError } from "@/features/data/errors";
 import { useDocmeRole } from "@/features/access/use-docme-role";
@@ -19,6 +19,7 @@ import {
   useListPageSummaries,
   useListVersions,
   useReorderPages,
+  useSetCurrentVersion,
   useUpdateDoc,
   useUpdatePage,
 } from "./hooks";
@@ -28,6 +29,7 @@ import { AddPageModal } from "./components/add-page-modal";
 import { EditDocModal } from "./components/edit-doc-modal";
 import { RepoSourceHeaderLine } from "@/features/sources/components/repo-source-section";
 import { VersionsDialog } from "./components/versions-dialog";
+import { AddVersionModal } from "./components/add-version-modal";
 import { VersionStateAlert, VersionStateBadge } from "./components/version-state";
 import { QueryErrorAlert } from "./components/query-error-alert";
 import { useRecordRecentDoc } from "@/components/layout/breadcrumbs";
@@ -66,6 +68,7 @@ export const DocDetailPage = () => {
   const selectedPageId = searchParams.get("page");
   const [editDocOpen, setEditDocOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   useEffect(() => {
     perfMark("doc-open:start");
@@ -89,11 +92,49 @@ export const DocDetailPage = () => {
       viewerDefaultVersion(readerVersions)?.ItemId ??
       "")
     : "";
-  const versionId = deleting ? "" : isReader ? readerVersionId : (doc?.CurrentVersion ?? "");
+  // Editors: `?version=` views another version read-only; CurrentVersion is unchanged.
+  const editorVersionId = versionParam || (doc?.CurrentVersion ?? "");
+  const versionId = deleting ? "" : isReader ? readerVersionId : editorVersionId;
   const versionQuery = useGetDocVersion(versionId);
-  const version = versionQuery.data ?? undefined;
+  const fetchedVersion = versionQuery.data ?? undefined;
+  // A `?version=` of another doc is ignored (and dropped below).
+  const version = fetchedVersion && fetchedVersion.DocId === docId ? fetchedVersion : undefined;
   const state = version ? versionState(version) : undefined;
-  const editable = state === "ready" && canWrite;
+  const viewingOther = !isReader && !!version && !!doc && version.ItemId !== doc.CurrentVersion;
+  const editable = state === "ready" && canWrite && !viewingOther;
+
+  // Drop `?version=` when it names another doc's version, or when the viewed
+  // version became current (Make current / Restore changed CurrentVersion).
+  const prevCurrent = useRef(doc?.CurrentVersion);
+  useEffect(() => {
+    const changed = prevCurrent.current !== undefined && prevCurrent.current !== doc?.CurrentVersion;
+    prevCurrent.current = doc?.CurrentVersion;
+    const foreign = !!fetchedVersion && fetchedVersion.DocId !== docId;
+    if (isReader || !versionParam || !(changed || foreign || versionParam === doc?.CurrentVersion)) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("version");
+    next.delete("page");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc?.CurrentVersion, fetchedVersion, versionParam, isReader]);
+
+  const setCurrentMut = useSetCurrentVersion();
+  async function makeViewedCurrent() {
+    if (!doc || !version) return;
+    try {
+      await setCurrentMut.mutateAsync({ docId: doc.ItemId, versionId: version.ItemId });
+      toast.success(`Version ${version.Version ?? ""} is now current`);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+  function viewVersion(id: string | null) {
+    const next = new URLSearchParams(searchParams);
+    if (id && (isReader || id !== doc?.CurrentVersion)) next.set("version", id);
+    else next.delete("version");
+    next.delete("page");
+    setSearchParams(next);
+  }
   const isLegacy = version ? version.SchemaVersion !== CURRENT_SCHEMA_VERSION : false;
 
   const summariesQuery = useListPageSummaries(version?.ItemId ?? "", !!version && !isLegacy);
@@ -308,6 +349,30 @@ export const DocDetailPage = () => {
         </PageMessage>
       ) : (
         <>
+          {viewingOther && (
+            <Alert className="mx-3 w-auto shrink-0">
+              <Eye className="h-4 w-4" />
+              <AlertTitle>Viewing version {version.Version ?? "—"}</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>This isn't the current version, so it's read-only. Nothing changes until you choose an action.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => viewVersion(null)}>
+                    <ArrowLeft className="h-3.5 w-3.5" /> Back to current
+                  </Button>
+                  {can("version.create") && state === "ready" && (
+                    <Button size="sm" variant="outline" onClick={() => setRestoreOpen(true)}>
+                      <History className="h-3.5 w-3.5" /> Restore as new version
+                    </Button>
+                  )}
+                  {can("doc.edit") && state === "ready" && (
+                    <Button size="sm" variant="outline" onClick={makeViewedCurrent} disabled={setCurrentMut.isPending}>
+                      <Star className="h-3.5 w-3.5" /> {setCurrentMut.isPending ? "Saving…" : "Make current"}
+                    </Button>
+                  )}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
           {state !== "ready" && <VersionStateAlert version={version} className="mx-3 w-auto shrink-0" />}
           {pagesQuery.error && (
             <div className="mx-3 shrink-0">
@@ -369,17 +434,16 @@ export const DocDetailPage = () => {
         onClose={() => setVersionsOpen(false)}
         doc={doc}
         openedVersionId={version?.ItemId}
-        onOpenVersion={
-          isReader
-            ? (id) => {
-                const next = new URLSearchParams(searchParams);
-                next.set("version", id);
-                next.delete("page");
-                setSearchParams(next);
-              }
-            : undefined
-        }
+        onOpenVersion={viewVersion}
       />
+      {viewingOther && (
+        <AddVersionModal
+          open={restoreOpen}
+          onClose={() => setRestoreOpen(false)}
+          doc={doc}
+          sourceVersionId={version.ItemId}
+        />
+      )}
     </div>
   );
 };

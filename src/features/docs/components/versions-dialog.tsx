@@ -27,15 +27,15 @@ export interface VersionsDialogProps {
   /** The version the page shows now (readers don't use CurrentVersion). */
   openedVersionId?: string;
   /**
-   * Readers: "Open" shows that version locally instead of writing
-   * Doc.CurrentVersion, which they may not change.
+   * "View" shows that version on the doc page (`?version=`) without writing
+   * Doc.CurrentVersion. Editors make it current or restore it explicitly.
    */
-  onOpenVersion?: (versionId: string) => void;
+  onOpenVersion: (versionId: string) => void;
 }
 
 /**
- * Every version of a doc, newest first, with open / publish / active /
- * delete. Versions are fetched only while the dialog is open, so opening a
+ * Every version of a doc, newest first, with view / make current /
+ * restore / publish / active / delete. Versions are fetched only while the dialog is open, so opening a
  * doc stays at three gateway requests (J1).
  */
 export function VersionsDialog({ open, onClose, doc, openedVersionId, onOpenVersion }: VersionsDialogProps) {
@@ -44,7 +44,9 @@ export function VersionsDialog({ open, onClose, doc, openedVersionId, onOpenVers
   const canCreate = can("version.create");
   const canPublish = can("version.publish");
   const canDelete = can("version.delete");
+  const canMakeCurrent = can("doc.edit");
   const [addOpen, setAddOpen] = useState(false);
+  const [restoreFrom, setRestoreFrom] = useState<string | undefined>(undefined);
 
   const setCurrent = useSetCurrentVersion();
   const publish = usePublishVersion();
@@ -78,7 +80,13 @@ export function VersionsDialog({ open, onClose, doc, openedVersionId, onOpenVers
         <div className="space-y-3">
           {canCreate && (
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setRestoreFrom(undefined);
+                  setAddOpen(true);
+                }}
+              >
                 <Plus /> Add version
               </Button>
             </div>
@@ -101,17 +109,28 @@ export function VersionsDialog({ open, onClose, doc, openedVersionId, onOpenVers
                 <li key={v.ItemId}>
                   <VersionCard
                     version={v}
-                    isCurrent={(onOpenVersion ? openedVersionId : doc.CurrentVersion) === v.ItemId}
+                    isCurrent={doc.CurrentVersion === v.ItemId}
+                    isViewing={openedVersionId === v.ItemId}
                     busy={busy}
                     canPublish={canPublish}
                     canDelete={canDelete}
-                    onOpen={() =>
-                      onOpenVersion
-                        ? Promise.resolve(onOpenVersion(v.ItemId)).then(onClose)
-                        : run(
-                            () => setCurrent.mutateAsync({ docId: doc.ItemId, versionId: v.ItemId }),
-                            `Opened version ${label(v)}`,
-                          )
+                    onOpen={() => Promise.resolve(onOpenVersion(v.ItemId)).then(onClose)}
+                    onMakeCurrent={
+                      canMakeCurrent
+                        ? () =>
+                            run(
+                              () => setCurrent.mutateAsync({ docId: doc.ItemId, versionId: v.ItemId }),
+                              `Version ${label(v)} is now current`,
+                            )
+                        : undefined
+                    }
+                    onRestore={
+                      canCreate
+                        ? () => {
+                            setRestoreFrom(v.ItemId);
+                            setAddOpen(true);
+                          }
+                        : undefined
                     }
                     onTogglePublished={() =>
                       v.IsPublished
@@ -140,7 +159,12 @@ export function VersionsDialog({ open, onClose, doc, openedVersionId, onOpenVers
           )}
         </div>
       </Dialog>
-      <AddVersionModal open={addOpen} onClose={() => setAddOpen(false)} doc={doc} />
+      <AddVersionModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        doc={doc}
+        sourceVersionId={restoreFrom}
+      />
     </>
   );
 }
