@@ -182,11 +182,13 @@ Driven by a headless Edge session on the deployed site (hosted login), signed in
 
 **Harness notes:** `switch-org` works only with the hosted-login session cookie; a password-login session gets `401 session_expired`, and a raw `switch-org` call from the page did not change the app's organization — use the app's switcher (avatar menu). Scripts live outside the repo (scratchpad).
 
+### Follow-up, 2026-11-20
+- **H8 passes** after the user ran `blocks iam roles assign-permissions docme-admin --organization-id <X|Y> …`: the admin's Members page lists both members.
+- **Orphans deleted** (admin session): DocVersion `ace094e8…` and its 4 Pages; nothing left.
+- **Version history UI** (commit `712b668`, deployed): 13/13 pass on "Mock Doc." — the Versions dialog offers View / Restore as new version / Make current on non-current versions; View shows the read-only "Viewing version" banner without changing CurrentVersion; Back to current; Restore copies 0.0.2 (4 pages, `SourceVersionId` set) into a new current version; Make current switches back; the temporary version and its pages were deleted afterwards.
+
 ### Remaining
-1. H8 after the permission fix above.
-2. Version history UI (commit `712b668`: View / Restore as new version / Make current) once deployed.
-3. Orphaned version cleanup.
-4. Then flags off and S0 probe removal (see the memory/rollout notes).
+Flags off and S0 probe removal (see the memory/rollout notes), and revoking the test account's roles.
 
 ## Phase 3 (SPEC3) — DocSource and Comment (2026-11-19)
 
